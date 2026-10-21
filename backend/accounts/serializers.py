@@ -45,3 +45,22 @@ class AccountUpdateSerializer(CheckCurrentPasswordMixin, CustomModelSerializer):
     def update(self, instance: User, validated_data: dict):
         self._require_current_password(instance, validated_data)
         return super().update(instance, validated_data)
+
+
+class AccountPasswordChangeSerializer(CheckCurrentPasswordMixin, CustomModelSerializer):
+    current_password = serializers.CharField(write_only=True, max_length=255)
+    new_password = serializers.CharField(write_only=True, max_length=255)
+
+    class Meta:
+        model = User
+        fields = ('new_password', 'current_password')
+
+    def validate_new_password(self, value: str) -> str:
+        validate_password(value, user=self.instance)
+        return value
+
+    def update(self, instance: User, validated_data: dict):
+        self._require_current_password(instance, validated_data)
+        instance.set_password(validated_data['new_password'])
+        instance.save(update_fields=['password'])
+        return instance
