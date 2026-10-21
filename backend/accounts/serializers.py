@@ -16,3 +16,32 @@ class AccountCreateSerializer(CustomModelSerializer):
 
     def create(self, validated_data: dict):
         return User.objects.create_user(**validated_data)
+
+
+class CheckCurrentPasswordMixin:
+    def _require_current_password(self, instance: User, validated_data: dict) -> None:
+        current_password = validated_data.pop('current_password', None)
+
+        if current_password is None:
+            # Additional check required for PATCH method that ignores required=True
+            raise serializers.ValidationError({'current_password': 'This field is required.'}, code='required')
+        if not instance.check_password(current_password):
+            raise serializers.ValidationError({'current_password': 'Incorrect current password'}, code='invalid')
+
+
+class AccountSerializer(CustomModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'email')
+
+
+class AccountUpdateSerializer(CheckCurrentPasswordMixin, CustomModelSerializer):
+    current_password = serializers.CharField(write_only=True, max_length=255)
+
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'email', 'current_password')
+
+    def update(self, instance: User, validated_data: dict):
+        self._require_current_password(instance, validated_data)
+        return super().update(instance, validated_data)

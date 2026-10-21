@@ -79,6 +79,7 @@ Base path `/api`. All endpoints except registration and login need `Authorizatio
 | ------------------- | ------------------------------- | ------------------------------------------------------------- |
 | `POST`              | `/token/`, `/token/refresh/`    | Sign in, refresh the access token                             |
 | `POST`              | `/accounts/`                    | Register                                                      |
+| `GET` `PUT` `PATCH` | `/accounts/me/`                 | Read or update the profile (updates need `current_password`)  |
 
 ## Development
 
