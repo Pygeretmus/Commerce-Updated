@@ -35,7 +35,7 @@ THIRD_PARTY_APPS = [
     'drf_spectacular',
 ]
 
-PROJECT_APPS = []
+PROJECT_APPS = ['accounts']
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + PROJECT_APPS
 
@@ -73,6 +73,8 @@ WSGI_APPLICATION = 'configuration.wsgi.application'
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 DATABASES = {'default': env.db()}  # reads from DATABASE_URL
+
+AUTH_USER_MODEL = 'accounts.User'
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators

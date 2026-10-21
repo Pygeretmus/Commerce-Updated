@@ -63,6 +63,7 @@ jobs:
       - name: Check migrations (forward ➜ backward ➜ forward)
         run: |
           uv run manage.py migrate --noinput --settings=configuration.settings.test
+          uv run manage.py migrate accounts zero --noinput --settings=configuration.settings.test
           uv run manage.py migrate --noinput --settings=configuration.settings.test
 
   backend-lints:
