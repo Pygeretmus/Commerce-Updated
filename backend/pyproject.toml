@@ -13,6 +13,7 @@ dependencies = [
     "drf-spectacular>=0.28.0",                  # OpenAPI 3 schema + Swagger UI
     "psycopg[binary]>=3.3.4",                   # PostgreSQL database connections
     "celery[redis]>=5.6.3",                     # distributed task queue with Redis broker support
+    "pillow>=13.0.0",                           # imaging library
 ]
 
 [dependency-groups]
