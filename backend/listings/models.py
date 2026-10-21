@@ -4,6 +4,8 @@ from django.conf import settings
 from django.db import models
 from django.db.models import F, Q
 
+from .managers import ListingManager
+
 
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -36,6 +38,7 @@ class Listing(models.Model):
     ends_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    objects = ListingManager()
 
     class Meta:
         constraints: ClassVar[list[models.BaseConstraint]] = [
