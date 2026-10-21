@@ -64,3 +64,11 @@ class AccountPasswordChangeSerializer(CheckCurrentPasswordMixin, CustomModelSeri
         instance.set_password(validated_data['new_password'])
         instance.save(update_fields=['password'])
         return instance
+
+
+class AccountDestroySerializer(CheckCurrentPasswordMixin, serializers.Serializer):
+    current_password = serializers.CharField(write_only=True, max_length=255)
+
+    def validate(self, attrs: dict) -> dict:
+        self._require_current_password(self.instance, attrs)
+        return attrs
