@@ -1,0 +1,43 @@
+[project]
+name = "commerce"
+version = "1.0.0"
+description = "Django-based backend for commerce project."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "django>=6.1.1",                            # web framework
+    "django-cors-headers>=4.9.0",               # CORS headers for frontend access
+    "django-environ>=0.13.0",                   # .env file support
+    "djangorestframework>=3.16.0",              # REST API toolkit
+    "djangorestframework-simplejwt>=5.5.1",     # JWT authentication
+    "drf-spectacular>=0.28.0",                  # OpenAPI 3 schema + Swagger UI
+    "psycopg[binary]>=3.3.4",                   # PostgreSQL database connections
+    "celery[redis]>=5.6.3",                     # distributed task queue with Redis broker support
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.12.4",                             # linter and formatter
+    "django-dynamic-fixture>=4.0.1",            # for fixture generation in tests
+]
+prod = [
+    "gunicorn>=23.0.0",                         # WSGI server for production
+]
+
+[tool.ruff]
+# Exclude a variety of commonly ignored directories.
+extend-exclude = [
+    "migrations",
+]
+line-length = 120
+indent-width = 4
+target-version = "py313"
+
+[tool.ruff.lint]
+extend-select = ["I"]
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
