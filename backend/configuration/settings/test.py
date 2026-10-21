@@ -11,6 +11,8 @@ for key, value in {
 
 from .base import *
 
+REST_FRAMEWORK['DEFAULT_THROTTLE_RATES'] = {name: '10000/min' for name in REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']}
+
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',

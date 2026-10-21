@@ -71,6 +71,15 @@ flowchart LR
 | `POSTGRES_PASSWORD`                                      | Read by Compose for the database container                 |
 | `VITE_API_URL`                                           | API base URL baked into the client at build time           |
 
+## API overview
+
+Base path `/api`. All endpoints except registration and login need `Authorization: Bearer <access token>`. Full schemas are in Swagger.
+
+| Method              | Path                            | Description                                                   |
+| ------------------- | ------------------------------- | ------------------------------------------------------------- |
+| `POST`              | `/token/`, `/token/refresh/`    | Sign in, refresh the access token                             |
+| `POST`              | `/accounts/`                    | Register                                                      |
+
 ## Development
 
 ### Backend
