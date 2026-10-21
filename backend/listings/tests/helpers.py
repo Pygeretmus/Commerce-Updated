@@ -1,10 +1,14 @@
 from datetime import timedelta
+from io import BytesIO
 from typing import Any
 
+from django.core.files.base import ContentFile
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
 from django_dynamic_fixture import N
+from PIL import Image
 
-from ..models import Category, Listing
+from ..models import Category, Listing, ListingImage
 
 
 def make_listing(**kwargs) -> Listing:
@@ -24,3 +28,27 @@ def make_active_listing(**kwargs) -> Listing:
     }
     fields.update(kwargs)
     return make_listing(**fields)
+
+
+def make_image_file(
+    image_format: str = 'JPEG',
+    size: tuple[int, int] = (400, 300),
+    mode: str = 'RGB',
+    exif: Image.Exif | None = None,
+    name: str | None = None,
+    color: Any = 'red',
+) -> SimpleUploadedFile:
+    """A real image in memory, as a browser would upload it."""
+    buffer = BytesIO()
+    options = {'exif': exif} if exif is not None else {}
+    Image.new(mode, size, color).save(buffer, image_format, **options)
+    extension = {'JPEG': 'jpg', 'PNG': 'png', 'WEBP': 'webp', 'GIF': 'gif'}[image_format]
+    return SimpleUploadedFile(name or f'photo.{extension}', buffer.getvalue(), f'image/{extension}')
+
+
+def make_listing_image(listing: Listing, position: int = 0) -> ListingImage:
+    """A photo row with a real file in the storage."""
+    photo = ListingImage(listing=listing, position=position)
+    photo.image.save(f'photo{position}.jpg', ContentFile(make_image_file().read()), save=False)
+    photo.save()
+    return photo

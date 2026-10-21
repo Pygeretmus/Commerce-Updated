@@ -1,10 +1,14 @@
+from typing import Any, ClassVar
+
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from configuration.serializers import CustomModelSerializer
 
+from .constants import MIN_PRICE
 from .models import Category, Listing, ListingImage
+from .services.drafts import create_draft, update_draft
 from .state import iso
 
 
@@ -129,3 +133,37 @@ class ListingDetailSerializer(CustomModelSerializer):
             # The reserve is a secret: bidders only learn that one exists
             data.pop('reserve_price')
         return data
+
+
+class ListingWriteSerializer(CustomModelSerializer):
+    """Input for creating and editing a draft. Status, seller and dates are not writable."""
+
+    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
+
+    class Meta:
+        model = Listing
+        fields = ('title', 'description', 'starting_price', 'reserve_price', 'category')
+        extra_kwargs: ClassVar[dict[str, dict[str, Any]]] = {
+            'title': {'min_length': 3},
+            'description': {'max_length': 5000},
+            'starting_price': {'min_value': MIN_PRICE},
+            'reserve_price': {'min_value': MIN_PRICE, 'required': False, 'allow_null': True},
+        }
+
+    def validate(self, attrs: dict) -> dict:
+        # On PATCH the missing field comes from the stored listing, not from the request
+        current = self.instance
+        starting = attrs.get('starting_price', current.starting_price if current else None)
+        reserve = attrs.get('reserve_price', current.reserve_price if current else None)
+        if starting is not None and reserve is not None and reserve < starting:
+            raise serializers.ValidationError(
+                {'reserve_price': 'Reserve price cannot be lower than the starting price.'},
+                code='reserve_below_starting_price',
+            )
+        return attrs
+
+    def create(self, validated_data: dict) -> Listing:
+        return create_draft(self.context['request'].user, **validated_data)
+
+    def update(self, instance: Listing, validated_data: dict) -> Listing:
+        return update_draft(instance, **validated_data)

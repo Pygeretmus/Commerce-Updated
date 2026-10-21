@@ -75,16 +75,16 @@ flowchart LR
 
 Base path `/api`. All endpoints except registration and login need `Authorization: Bearer <access token>`. Full schemas are in Swagger.
 
-| Method              | Path                            | Description                                                   |
-| ------------------- | ------------------------------- | ------------------------------------------------------------- |
-| `POST`              | `/token/`, `/token/refresh/`    | Sign in, refresh the access token                             |
-| `POST`              | `/accounts/`                    | Register                                                      |
-| `GET` `PUT` `PATCH` | `/accounts/me/`                 | Read or update the profile (updates need `current_password`)  |
-| `PUT`               | `/accounts/password/`           | Change password                                               |
-| `POST`              | `/accounts/destroy/`            | Delete the account (needs `current_password`)                 |
-| `GET`               | `/categories/`                  | Categories                                                    |
-| `GET`               | `/listings/`                    | Catalogue                                                     |
-| `GET`               | `/listings/{id}/`               | Lot detail                                                    |
+| Method                  | Path                            | Description                                                   |
+| ----------------------- | ------------------------------- | ------------------------------------------------------------- |
+| `POST`                  | `/token/`, `/token/refresh/`    | Sign in, refresh the access token                             |
+| `POST`                  | `/accounts/`                    | Register                                                      |
+| `GET` `PUT` `PATCH`     | `/accounts/me/`                 | Read or update the profile (updates need `current_password`)  |
+| `PUT`                   | `/accounts/password/`           | Change password                                               |
+| `POST`                  | `/accounts/destroy/`            | Delete the account (needs `current_password`)                 |
+| `GET`                   | `/categories/`                  | Categories                                                    |
+| `GET` `POST`            | `/listings/`                    | Catalogue, create draft                                       |
+| `GET` `PATCH` `DELETE`  | `/listings/{id}/`               | Lot detail; edit or delete a draft                            |
 
 ## Development
 

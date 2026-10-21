@@ -59,6 +59,14 @@ class Listing(models.Model):
     def __str__(self):
         return self.title
 
+    def save(self, *args, **kwargs):
+        if self.status == self.Status.DRAFT:
+            self.current_price = self.starting_price
+            update_fields = kwargs.get('update_fields')
+            if update_fields is not None and 'starting_price' in update_fields:
+                kwargs['update_fields'] = {*update_fields, 'current_price'}
+        super().save(*args, **kwargs)
+
 
 def listing_image_path(instance: 'ListingImage', filename: str) -> str:
     return f'listings/{instance.listing_id}/{filename}'

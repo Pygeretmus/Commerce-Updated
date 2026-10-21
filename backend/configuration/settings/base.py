@@ -127,6 +127,7 @@ REST_FRAMEWORK = {
         'login': '5/min',
         'register': '5/hour',
         'password_check': '5/min',
+        'listing_write': '60/hour',
     },
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'EXCEPTION_HANDLER': 'configuration.exceptions.exception_handler',
