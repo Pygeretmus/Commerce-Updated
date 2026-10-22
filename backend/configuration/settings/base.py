@@ -128,6 +128,7 @@ REST_FRAMEWORK = {
         'register': '5/hour',
         'password_check': '5/min',
         'listing_write': '60/hour',
+        'image_upload': '120/hour',
     },
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'EXCEPTION_HANDLER': 'configuration.exceptions.exception_handler',
@@ -158,3 +159,10 @@ MEDIA_URL = 'media/'
 
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATIC_URL = 'static/'
+
+# Listing photos
+IMAGE_MAX_BYTES = 5 * 1024 * 1024
+IMAGE_MIN_SIDE = 200
+IMAGE_MAX_SIDE = 6000
+LISTING_MAX_IMAGES = 8
+THUMBNAIL_SIZE = 400

@@ -1,8 +1,10 @@
 import logging
 from collections.abc import Iterable
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.db.models import Max
 from rest_framework import serializers
 from rest_framework.exceptions import APIException
 
@@ -26,7 +28,7 @@ def _lock_draft(listing: Listing, detail: str | None = None) -> Listing:
     a concurrent publish cannot slip in between the check and the write.
     """
     locked = Listing.objects.select_for_update().get(pk=listing.pk)
-    require_draft(locked)
+    require_draft(locked, detail)
     return locked
 
 
@@ -70,3 +72,44 @@ def delete_draft(listing: Listing) -> None:
     names = [name for pair in locked.images.values_list('image', 'thumbnail') for name in pair if name]
     locked.delete()
     _delete_files_after_commit(names)
+
+
+@transaction.atomic
+def add_image(listing: Listing, image) -> ListingImage:
+    locked = _lock_draft(listing)
+    if locked.images.count() >= settings.LISTING_MAX_IMAGES:
+        raise serializers.ValidationError(
+            {'image': f'A listing can have at most {settings.LISTING_MAX_IMAGES} photos.'}, code='image_limit'
+        )
+    last = locked.images.aggregate(last=Max('position'))['last']
+    photo = ListingImage(listing=locked, position=0 if last is None else last + 1)
+    # The name is ours: whatever the client called the file never reaches the storage
+    photo.image.save(image.name, image, save=False)
+    try:
+        photo.save()
+    except Exception:
+        photo.image.storage.delete(photo.image.name)
+        raise
+    return photo
+
+
+@transaction.atomic
+def delete_image(listing: Listing, photo: ListingImage) -> None:
+    _lock_draft(listing)
+    names = [name for name in (photo.image.name, photo.thumbnail.name) if name]
+    photo.delete()
+    _delete_files_after_commit(names)
+
+
+@transaction.atomic
+def reorder_images(listing: Listing, ids: list[int]) -> list[ListingImage]:
+    locked = _lock_draft(listing)
+    photos = {photo.pk: photo for photo in locked.images.all()}
+    if len(ids) != len(set(ids)) or set(ids) != set(photos):
+        raise serializers.ValidationError(
+            {'ids': 'The list must contain every photo of the listing exactly once.'}, code='invalid_order'
+        )
+    for position, pk in enumerate(ids):
+        photos[pk].position = position
+    ListingImage.objects.bulk_update(photos.values(), ['position'])
+    return sorted(photos.values(), key=lambda photo: photo.position)

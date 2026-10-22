@@ -4,7 +4,7 @@ from django.utils import timezone
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
-from configuration.serializers import CustomModelSerializer
+from configuration.serializers import CustomModelSerializer, ImageUploadField
 
 from .constants import MIN_PRICE
 from .models import Category, Listing, ListingImage
@@ -167,3 +167,11 @@ class ListingWriteSerializer(CustomModelSerializer):
 
     def update(self, instance: Listing, validated_data: dict) -> Listing:
         return update_draft(instance, **validated_data)
+
+
+class ListingImageUploadSerializer(serializers.Serializer):
+    image = ImageUploadField(help_text='JPEG, PNG or WEBP, up to 5 MB')
+
+
+class ListingImageOrderSerializer(serializers.Serializer):
+    ids = serializers.ListField(child=serializers.IntegerField(), allow_empty=True)

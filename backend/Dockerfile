@@ -35,8 +35,8 @@ COPY --from=builder /opt/venv /opt/venv
 COPY --chown=django:django . .
 
 # Allow django user to write static and celery files
-RUN mkdir -p /app/staticfiles /app/celerybeat \
-    && chown -R django:django /app/staticfiles /app/celerybeat
+RUN mkdir -p /app/staticfiles /app/celerybeat /app/media \
+    && chown -R django:django /app/staticfiles /app/celerybeat /app/media
 
 # declare user to run commands
 USER django

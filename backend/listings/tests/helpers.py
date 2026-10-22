@@ -46,6 +46,15 @@ def make_image_file(
     return SimpleUploadedFile(name or f'photo.{extension}', buffer.getvalue(), f'image/{extension}')
 
 
+def make_exif(orientation: int = 1) -> Image.Exif:
+    """EXIF with a camera name, an orientation and GPS coordinates."""
+    exif = Image.Exif()
+    exif[0x010F] = 'TestCamera'
+    exif[0x0112] = orientation
+    exif[0x8825] = {1: 'N', 2: (50.0, 27.0, 0.0), 3: 'E', 4: (30.0, 31.0, 0.0)}
+    return exif
+
+
 def make_listing_image(listing: Listing, position: int = 0) -> ListingImage:
     """A photo row with a real file in the storage."""
     photo = ListingImage(listing=listing, position=position)
