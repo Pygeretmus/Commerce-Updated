@@ -1,15 +1,19 @@
 import logging
 from collections.abc import Iterable
+from io import BytesIO
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.files.base import ContentFile
 from django.db import transaction
 from django.db.models import Max
+from PIL import Image, ImageOps
 from rest_framework import serializers
 from rest_framework.exceptions import APIException
 
 from ..constants import MAX_DRAFTS
 from ..models import Listing, ListingImage
+from ..tasks import create_thumbnail
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +78,15 @@ def delete_draft(listing: Listing) -> None:
     _delete_files_after_commit(names)
 
 
+def _schedule_thumbnail(photo_id: int) -> None:
+    try:
+        create_thumbnail.delay(photo_id)
+    except Exception:
+        # The preview is a nicety: a broker outage must not fail an upload that already succeeded.
+        # Until a thumbnail exists the API falls back to the original photo.
+        logger.exception('Could not schedule the thumbnail of photo %s', photo_id)
+
+
 @transaction.atomic
 def add_image(listing: Listing, image) -> ListingImage:
     locked = _lock_draft(listing)
@@ -90,6 +103,7 @@ def add_image(listing: Listing, image) -> ListingImage:
     except Exception:
         photo.image.storage.delete(photo.image.name)
         raise
+    transaction.on_commit(lambda: _schedule_thumbnail(photo.pk))
     return photo
 
 
@@ -113,3 +127,13 @@ def reorder_images(listing: Listing, ids: list[int]) -> list[ListingImage]:
         photos[pk].position = position
     ListingImage.objects.bulk_update(photos.values(), ['position'])
     return sorted(photos.values(), key=lambda photo: photo.position)
+
+
+def make_thumbnail(source):
+    """Builds a WEBP preview of an already cleaned photo: its longer side is THUMBNAIL_SIZE px at most."""
+    with Image.open(source) as original:
+        image = ImageOps.exif_transpose(original)
+    image.thumbnail((settings.THUMBNAIL_SIZE, settings.THUMBNAIL_SIZE))  # keeps proportions, never enlarges
+    buffer = BytesIO()
+    image.save(buffer, format='WEBP', quality=80)
+    return ContentFile(buffer.getvalue())
