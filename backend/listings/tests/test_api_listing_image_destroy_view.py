@@ -7,8 +7,8 @@ from django_dynamic_fixture import G
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from listings.models import ListingImage
-from listings.tests.helpers import make_active_listing, make_listing, make_listing_image
+from ..models import ListingImage
+from .helpers import make_active_listing, make_listing, make_listing_image
 
 User = get_user_model()
 

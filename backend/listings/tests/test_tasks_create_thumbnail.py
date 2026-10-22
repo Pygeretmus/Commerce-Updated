@@ -4,9 +4,9 @@ from django.core.files.storage import default_storage
 from django.test import TestCase
 from PIL import Image
 
-from listings.models import ListingImage
-from listings.tasks import create_thumbnail
-from listings.tests.helpers import make_image_file, make_listing
+from ..models import ListingImage
+from ..tasks import create_thumbnail
+from .helpers import make_image_file, make_listing
 
 
 class CreateThumbnailTaskTest(TestCase):

@@ -9,9 +9,9 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework.throttling import ScopedRateThrottle
 
-from listings.models import Listing
-from listings.services.drafts import DURATIONS_DAYS
-from listings.tests.helpers import make_active_listing, make_image_file, make_listing, make_listing_image
+from ..constants import DURATIONS_DAYS
+from ..models import Listing
+from .helpers import make_active_listing, make_image_file, make_listing, make_listing_image
 
 User = get_user_model()
 

@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from django.test import SimpleTestCase
 
-from listings.services.pricing import bid_increment, next_min_bid
+from ..services.pricing import bid_increment, next_min_bid
 
 
 class BidIncrementTest(SimpleTestCase):

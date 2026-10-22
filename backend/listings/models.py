@@ -1,10 +1,13 @@
+from decimal import Decimal
 from typing import ClassVar
 
 from django.conf import settings
 from django.db import models
 from django.db.models import F, Q
+from django.utils import timezone
 
 from .managers import ListingManager
+from .services.pricing import next_min_bid
 
 
 class Category(models.Model):
@@ -33,7 +36,15 @@ class Listing(models.Model):
     starting_price = models.DecimalField(max_digits=12, decimal_places=2)
     reserve_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.DRAFT)
+    # Denormalised from the bids so that lists can sort and filter by price without a join.
+    # They change only in place_bid(), under a lock on this row.
     current_price = models.DecimalField(max_digits=12, decimal_places=2, editable=False)
+    bids_count = models.PositiveIntegerField(default=0, editable=False)
+    # DO_NOTHING: SET_NULL would break the top_bid/bids_count constraint while a listing is
+    # being deleted; bids are removed by the listing cascade and the FK check is deferred.
+    top_bid = models.ForeignKey(
+        'Bid', on_delete=models.DO_NOTHING, null=True, blank=True, editable=False, related_name='+'
+    )
     published_at = models.DateTimeField(null=True, blank=True)
     ends_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -54,18 +65,40 @@ class Listing(models.Model):
             models.CheckConstraint(
                 condition=Q(current_price__gte=F('starting_price')), name='listing_current_price_gte_starting'
             ),
+            # A listing has a top bid exactly when it has bids
+            models.CheckConstraint(
+                condition=(Q(top_bid__isnull=True) & Q(bids_count=0))
+                | (Q(top_bid__isnull=False) & Q(bids_count__gt=0)),
+                name='listing_top_bid_matches_bids_count',
+            ),
         ]
 
     def __str__(self):
         return self.title
 
     def save(self, *args, **kwargs):
-        if self.status == self.Status.DRAFT:
+        # Without bids the price is the starting price. Keeping the rule here covers the admin
+        # and the services alike; place_bid() sets top_bid, so it is left alone.
+        if self.top_bid_id is None:
             self.current_price = self.starting_price
             update_fields = kwargs.get('update_fields')
             if update_fields is not None and 'starting_price' in update_fields:
                 kwargs['update_fields'] = {*update_fields, 'current_price'}
         super().save(*args, **kwargs)
+
+    @property
+    def next_min_bid(self) -> Decimal:
+        return next_min_bid(self.starting_price, self.current_price, self.bids_count)
+
+    @property
+    def reserve_met(self) -> bool:
+        return self.reserve_price is None or self.current_price >= self.reserve_price
+
+    def is_ended(self, now=None) -> bool:
+        """True when bids are no longer accepted, even if the closing task has not run yet."""
+        if self.status != self.Status.ACTIVE:
+            return self.status != self.Status.DRAFT
+        return self.ends_at is not None and self.ends_at <= (now or timezone.now())
 
 
 def listing_image_path(instance: 'ListingImage', filename: str) -> str:
@@ -85,3 +118,27 @@ class ListingImage(models.Model):
 
     def __str__(self):
         return f'{self.listing_id}#{self.position}'
+
+
+class Bid(models.Model):
+    """An accepted bid. Bids are never edited or deleted, they are the history of the auction."""
+
+    listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name='bids')
+    # null: the bidder deleted their account
+    bidder = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='bids')
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ('-amount',)
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            models.CheckConstraint(condition=Q(amount__gt=0), name='bid_amount_positive'),
+            # Two equal bids can never both be stored, even if the lock around place_bid() fails
+            models.UniqueConstraint(fields=['listing', 'amount'], name='bid_unique_amount_per_listing'),
+        ]
+        indexes: ClassVar[list[models.Index]] = [
+            models.Index(F('bidder'), F('created_at').desc(), name='bid_bidder_created_idx'),
+        ]
+
+    def __str__(self):
+        return f'{self.amount} on listing {self.listing_id}'

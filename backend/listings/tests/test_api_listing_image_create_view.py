@@ -13,8 +13,8 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework.throttling import ScopedRateThrottle
 
-from listings.models import Listing, ListingImage
-from listings.tests.helpers import make_active_listing, make_image_file, make_listing, make_listing_image
+from ..models import Listing, ListingImage
+from .helpers import make_active_listing, make_image_file, make_listing, make_listing_image
 
 User = get_user_model()
 

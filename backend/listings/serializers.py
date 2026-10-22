@@ -9,7 +9,7 @@ from configuration.serializers import CustomModelSerializer, ImageUploadField
 from .constants import DURATIONS_DAYS, MIN_PRICE
 from .models import Category, Listing, ListingImage
 from .services.drafts import create_draft, update_draft
-from .state import iso
+from .services.state import iso, leader_of
 
 
 class CategorySerializer(CustomModelSerializer):
@@ -29,6 +29,7 @@ class ListingListSerializer(CustomModelSerializer):
     # null when the seller deleted their account
     seller = serializers.SlugRelatedField(slug_field='username', read_only=True)
     cover = serializers.SerializerMethodField()
+    is_ended = serializers.SerializerMethodField()
 
     class Meta:
         model = Listing
@@ -37,13 +38,18 @@ class ListingListSerializer(CustomModelSerializer):
             'title',
             'starting_price',
             'current_price',
+            'bids_count',
             'status',
+            'is_ended',
             'published_at',
             'ends_at',
             'category',
             'seller',
             'cover',
         )
+
+    def get_is_ended(self, obj: Listing) -> bool:
+        return obj.is_ended()
 
     @extend_schema_field(serializers.URLField(allow_null=True))
     def get_cover(self, obj: Listing) -> str | None:
@@ -83,6 +89,10 @@ class ListingDetailSerializer(CustomModelSerializer):
     seller = serializers.SlugRelatedField(slug_field='username', read_only=True)
     images = ListingImageSerializer(many=True, read_only=True)
     has_reserve = serializers.SerializerMethodField()
+    reserve_met = serializers.SerializerMethodField()
+    next_min_bid = serializers.SerializerMethodField()
+    leader = serializers.SerializerMethodField()
+    is_ended = serializers.SerializerMethodField()
     seconds_left = serializers.SerializerMethodField()
     server_time = serializers.SerializerMethodField()
     is_seller = serializers.SerializerMethodField()
@@ -96,8 +106,13 @@ class ListingDetailSerializer(CustomModelSerializer):
             'starting_price',
             'reserve_price',
             'has_reserve',
+            'reserve_met',
             'current_price',
+            'bids_count',
+            'next_min_bid',
+            'leader',
             'status',
+            'is_ended',
             'published_at',
             'ends_at',
             'seconds_left',
@@ -115,6 +130,19 @@ class ListingDetailSerializer(CustomModelSerializer):
 
     def get_has_reserve(self, obj: Listing) -> bool:
         return obj.reserve_price is not None
+
+    def get_reserve_met(self, obj: Listing) -> bool | None:
+        # Bidders learn whether the secret reserve was reached, never what it is
+        return obj.reserve_met if obj.reserve_price is not None else None
+
+    def get_next_min_bid(self, obj: Listing) -> str:
+        return f'{obj.next_min_bid:.2f}'
+
+    def get_leader(self, obj: Listing) -> str | None:
+        return leader_of(obj)
+
+    def get_is_ended(self, obj: Listing) -> bool:
+        return obj.is_ended()
 
     def get_seconds_left(self, obj: Listing) -> int | None:
         if obj.status != Listing.Status.ACTIVE or obj.ends_at is None:

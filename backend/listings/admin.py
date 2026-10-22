@@ -2,7 +2,7 @@ from typing import ClassVar
 
 from django.contrib import admin
 
-from .models import Category, Listing, ListingImage
+from .models import Bid, Category, Listing, ListingImage
 
 
 @admin.register(Category)
@@ -23,5 +23,22 @@ class ListingAdmin(admin.ModelAdmin):
     list_filter = ('status', 'category')
     search_fields = ('title', 'seller__username')
     raw_id_fields = ('seller',)
-    readonly_fields = ('current_price',)
+    readonly_fields = ('current_price', 'bids_count', 'top_bid')
     inlines = (ListingImageInline,)
+
+
+@admin.register(Bid)
+class BidAdmin(admin.ModelAdmin):
+    """The bid history is read-only: bids are never edited or deleted by hand."""
+
+    list_display = ('listing', 'bidder', 'amount', 'created_at')
+    raw_id_fields = ('listing', 'bidder')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
