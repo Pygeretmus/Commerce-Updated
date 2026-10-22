@@ -2,6 +2,8 @@
 
 from datetime import UTC, datetime
 
+from django.utils import timezone
+
 from ..models import Listing
 from .masking import mask_name
 
@@ -14,3 +16,18 @@ def leader_of(listing: Listing) -> str | None:
     """The masked name of the top bidder. Reads top_bid.bidder, so select_related them in lists."""
     top = listing.top_bid
     return mask_name(top.bidder.username) if top is not None and top.bidder is not None else None
+
+
+def money(value) -> str:
+    return f'{value:.2f}'
+
+
+def state_of(listing: Listing, leader: str | None = None) -> dict:
+    return {
+        'current_price': money(listing.current_price),
+        'bids_count': listing.bids_count,
+        'next_min_bid': money(listing.next_min_bid),
+        'ends_at': iso(listing.ends_at),
+        'leader': leader if leader is not None else leader_of(listing),
+        'server_time': iso(timezone.now()),
+    }

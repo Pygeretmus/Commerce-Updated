@@ -1,5 +1,6 @@
 from django.urls import path
 
+from .views.bids import BidListCreateView
 from .views.listings import (
     CategoryListView,
     ListingDetailView,
@@ -20,4 +21,5 @@ urlpatterns = [
     path('listings/<int:pk>/images/', ListingImageCreateView.as_view(), name='listing-image-list'),
     path('listings/<int:pk>/images/order/', ListingImageOrderView.as_view(), name='listing-image-order'),
     path('listings/<int:pk>/images/<int:image_id>/', ListingImageDetailView.as_view(), name='listing-image-detail'),
+    path('listings/<int:pk>/bids/', BidListCreateView.as_view(), name='bid-list'),
 ]

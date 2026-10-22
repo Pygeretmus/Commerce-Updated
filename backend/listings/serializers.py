@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import Any, ClassVar
 
 from django.utils import timezone
@@ -7,8 +8,9 @@ from rest_framework import serializers
 from configuration.serializers import CustomModelSerializer, ImageUploadField
 
 from .constants import DURATIONS_DAYS, MIN_PRICE
-from .models import Category, Listing, ListingImage
+from .models import Bid, Category, Listing, ListingImage
 from .services.drafts import create_draft, update_draft
+from .services.masking import mask_name
 from .services.state import iso, leader_of
 
 
@@ -207,3 +209,47 @@ class ListingImageOrderSerializer(serializers.Serializer):
 
 class ListingPublishSerializer(serializers.Serializer):
     duration_days = serializers.ChoiceField(choices=DURATIONS_DAYS, help_text='How long the auction runs')
+
+
+class ListingStateSerializer(serializers.Serializer):
+    """Price, leader and end time: the part of a lot that changes while people bid."""
+
+    current_price = serializers.CharField()
+    bids_count = serializers.IntegerField()
+    next_min_bid = serializers.CharField()
+    ends_at = serializers.DateTimeField(allow_null=True)
+    leader = serializers.CharField(allow_null=True)
+    server_time = serializers.DateTimeField()
+
+
+class BidSerializer(serializers.ModelSerializer):
+    """A bid in the public history: other people appear masked, my own bids carry my real name."""
+
+    bidder = serializers.SerializerMethodField()
+    is_mine = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Bid
+        fields = ('id', 'bidder', 'amount', 'created_at', 'is_mine')
+
+    def _user_id(self) -> int | None:
+        request = self.context.get('request')
+        return request.user.pk if request and request.user.is_authenticated else None
+
+    def get_is_mine(self, obj: Bid) -> bool:
+        return obj.bidder_id is not None and obj.bidder_id == self._user_id()
+
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_bidder(self, obj: Bid) -> str | None:
+        if obj.bidder is None:
+            return None
+        return obj.bidder.username if self.get_is_mine(obj) else mask_name(obj.bidder.username)
+
+
+class BidCreateSerializer(serializers.Serializer):
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=Decimal('0.01'))
+
+
+class BidPlacedSerializer(serializers.Serializer):
+    bid = BidSerializer()
+    state = ListingStateSerializer()

@@ -8,7 +8,7 @@ from django.utils import timezone
 from django_dynamic_fixture import N
 from PIL import Image
 
-from ..models import Category, Listing, ListingImage
+from ..models import Bid, Category, Listing, ListingImage
 
 
 def make_listing(**kwargs) -> Listing:
@@ -61,3 +61,12 @@ def make_listing_image(listing: Listing, position: int = 0) -> ListingImage:
     photo.image.save(f'photo{position}.jpg', ContentFile(make_image_file().read()), save=False)
     photo.save()
     return photo
+
+
+def bid_on(listing: Listing, bidder, amount) -> Bid:
+    """Places a bid through the real service (so the listing state stays consistent)."""
+    from decimal import Decimal
+
+    from listings.services.bidding import place_bid
+
+    return place_bid(listing.pk, bidder, Decimal(amount))
