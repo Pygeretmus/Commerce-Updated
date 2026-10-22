@@ -18,9 +18,10 @@ from ..serializers import (
     ListingImageSerializer,
     ListingImageUploadSerializer,
     ListingListSerializer,
+    ListingPublishSerializer,
     ListingWriteSerializer,
 )
-from ..services.drafts import add_image, delete_draft, delete_image, reorder_images, require_draft
+from ..services.drafts import add_image, delete_draft, delete_image, publish, reorder_images, require_draft
 
 
 class WriteThrottleMixin:
@@ -164,3 +165,18 @@ class ListingImageOrderView(DraftListingMixin, WriteThrottleMixin, GenericAPIVie
         photos = reorder_images(listing, serializer.validated_data['ids'])
         data = ListingImageSerializer(photos, many=True, context=self.get_serializer_context()).data
         return Response(data)
+
+
+@extend_schema(request=ListingPublishSerializer, responses={200: ListingDetailSerializer})
+class ListingPublishView(DraftListingMixin, WriteThrottleMixin, GenericAPIView):
+    """Puts a draft on sale. Needs at least one photo; afterwards the listing can no longer be edited."""
+
+    serializer_class = ListingPublishSerializer
+    not_draft_message = 'Only a draft can be published.'
+
+    def post(self, request, *args, **kwargs):
+        listing = self.get_listing()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        listing = publish(listing, serializer.validated_data['duration_days'])
+        return Response(ListingDetailSerializer(listing, context=self.get_serializer_context()).data)

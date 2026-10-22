@@ -1,5 +1,6 @@
 import logging
 from collections.abc import Iterable
+from datetime import timedelta
 from io import BytesIO
 
 from django.conf import settings
@@ -7,11 +8,12 @@ from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.db.models import Max
+from django.utils import timezone
 from PIL import Image, ImageOps
 from rest_framework import serializers
 from rest_framework.exceptions import APIException
 
-from ..constants import MAX_DRAFTS
+from ..constants import DURATIONS_DAYS, MAX_DRAFTS
 from ..models import Listing, ListingImage
 from ..tasks import create_thumbnail
 
@@ -137,3 +139,27 @@ def make_thumbnail(source):
     buffer = BytesIO()
     image.save(buffer, format='WEBP', quality=80)
     return ContentFile(buffer.getvalue())
+
+
+@transaction.atomic
+def publish(listing: Listing, duration_days: int) -> Listing:
+    """
+    Puts a draft on sale: the auction starts now and runs for `duration_days`.
+
+    Adding and removing photos lock the same listing row, so "has a photo" cannot become
+    untrue between this check and the status change.
+    """
+    if duration_days not in DURATIONS_DAYS:
+        raise serializers.ValidationError(
+            {'duration_days': f'Choose one of: {", ".join(map(str, DURATIONS_DAYS))}.'}, code='invalid_choice'
+        )
+    locked = _lock_draft(listing, 'Only a draft can be published.')
+    if not locked.images.exists():
+        raise serializers.ValidationError('Add at least one photo before publishing.', code='no_photos')
+
+    now = timezone.now()
+    locked.status = Listing.Status.ACTIVE
+    locked.published_at = now
+    locked.ends_at = now + timedelta(days=duration_days)
+    locked.save(update_fields=['status', 'published_at', 'ends_at', 'updated_at'])
+    return locked

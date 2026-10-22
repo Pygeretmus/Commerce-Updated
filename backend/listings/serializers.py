@@ -6,7 +6,7 @@ from rest_framework import serializers
 
 from configuration.serializers import CustomModelSerializer, ImageUploadField
 
-from .constants import MIN_PRICE
+from .constants import DURATIONS_DAYS, MIN_PRICE
 from .models import Category, Listing, ListingImage
 from .services.drafts import create_draft, update_draft
 from .state import iso
@@ -175,3 +175,7 @@ class ListingImageUploadSerializer(serializers.Serializer):
 
 class ListingImageOrderSerializer(serializers.Serializer):
     ids = serializers.ListField(child=serializers.IntegerField(), allow_empty=True)
+
+
+class ListingPublishSerializer(serializers.Serializer):
+    duration_days = serializers.ChoiceField(choices=DURATIONS_DAYS, help_text='How long the auction runs')
