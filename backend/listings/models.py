@@ -47,6 +47,10 @@ class Listing(models.Model):
     )
     published_at = models.DateTimeField(null=True, blank=True)
     ends_at = models.DateTimeField(null=True, blank=True)
+    closed_at = models.DateTimeField(null=True, blank=True)
+    # The result of a closed auction: true when the top bidder won, false when it ended without
+    # a winner (no bids, reserve not met, cancelled). null while the auction is not closed.
+    sold = models.BooleanField(null=True, blank=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     objects = ListingManager()
@@ -65,12 +69,22 @@ class Listing(models.Model):
             models.CheckConstraint(
                 condition=Q(current_price__gte=F('starting_price')), name='listing_current_price_gte_starting'
             ),
+            # Only a closed auction has a result
+            models.CheckConstraint(
+                condition=Q(sold__isnull=True) | Q(status__in=['ended', 'cancelled']),
+                name='listing_sold_only_when_closed',
+            ),
             # A listing has a top bid exactly when it has bids
             models.CheckConstraint(
                 condition=(Q(top_bid__isnull=True) & Q(bids_count=0))
                 | (Q(top_bid__isnull=False) & Q(bids_count__gt=0)),
                 name='listing_top_bid_matches_bids_count',
             ),
+        ]
+        indexes: ClassVar[list[models.Index]] = [
+            # What the closer task scans every minute
+            models.Index(fields=['ends_at'], condition=Q(status='active'), name='listing_active_ends_at_idx'),
+            models.Index(F('status'), F('published_at').desc(), name='listing_status_published_idx'),
         ]
 
     def __str__(self):

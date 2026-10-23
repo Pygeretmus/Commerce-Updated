@@ -31,3 +31,17 @@ def state_of(listing: Listing, leader: str | None = None) -> dict:
         'leader': leader if leader is not None else leader_of(listing),
         'server_time': iso(timezone.now()),
     }
+
+
+def listing_ended_event(listing: Listing) -> dict:
+    sold = bool(listing.sold)
+    return {
+        'type': 'listing_ended',
+        'listing_id': listing.pk,
+        'status': listing.status,
+        'sold': sold,
+        'final_price': money(listing.current_price),
+        'winner': leader_of(listing) if sold else None,
+        'closed_at': iso(listing.closed_at),
+        'server_time': iso(timezone.now()),
+    }

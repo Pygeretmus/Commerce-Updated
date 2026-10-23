@@ -9,3 +9,10 @@ app = Celery('configuration')
 app.config_from_object('django.conf:settings', namespace='CELERY')
 
 app.autodiscover_tasks()
+
+app.conf.beat_schedule = {
+    'close-expired-listings-every-30-seconds': {
+        'task': 'listings.tasks.close_expired_listings',
+        'schedule': 30,
+    },
+}
