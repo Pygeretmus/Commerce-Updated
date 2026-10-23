@@ -62,7 +62,7 @@ services:
     volumes:
       - media_data:/app/media
     entrypoint: []
-    command: celery -A configuration worker -l INFO --concurrency=1 -Q images
+    command: celery -A configuration worker -l INFO --concurrency=1 -Q images,commerce
     restart: unless-stopped
 
   beat:

@@ -60,6 +60,41 @@ class APIListingImageCreateViewTest(APITestCase):
         )
         self.assertTrue(default_storage.exists(photo.image.name))
 
+    def test_it_schedules_thumbnail_after_commit(self):
+        # === Act ===
+        with (
+            mock.patch('listings.services.drafts.create_thumbnail') as task,
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            response = self.upload(make_image_file())
+
+        # === Assert ===
+        task.delay.assert_called_once_with(response.json()['id'])
+
+    def test_it_does_not_schedule_thumbnail_before_commit(self):
+        # === Act ===
+        with mock.patch('listings.services.drafts.create_thumbnail') as task:
+            self.upload(make_image_file())
+
+        # === Assert === (the test transaction is never committed, so the callback never ran)
+        task.delay.assert_not_called()
+
+    def test_it_succeeds_even_if_the_task_broker_is_down(self):
+        # === Act ===
+        # The callbacks run when captureOnCommitCallbacks exits, so assertLogs must be the outer block
+        with (
+            self.assertLogs('listings.services.drafts', level='ERROR') as logs,
+            mock.patch('listings.services.drafts.create_thumbnail') as task,
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            task.delay.side_effect = ConnectionError('redis is down')
+            response = self.upload(make_image_file())
+
+        # === Assert ===
+        self.assertIn('Could not schedule the thumbnail', logs.output[0])
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(ListingImage.objects.count(), 1)
+
     def test_it_accepts_jpeg_png_and_webp(self):
         for image_format, extension in (('JPEG', 'jpg'), ('PNG', 'png'), ('WEBP', 'webp')):
             with self.subTest(image_format=image_format):

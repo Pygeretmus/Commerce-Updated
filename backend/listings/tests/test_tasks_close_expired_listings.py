@@ -7,8 +7,10 @@ from django.utils import timezone
 from django_dynamic_fixture import G
 
 from listings import tasks
-from listings.models import Listing
-from listings.tests.helpers import make_active_listing, make_listing
+
+from ..models import Listing
+from ..tasks import close_expired_listings
+from .helpers import make_active_listing, make_listing
 
 User = get_user_model()
 
@@ -25,7 +27,7 @@ class CloseExpiredListingsTaskTest(TestCase):
         draft = make_listing(seller=self.seller, status=Listing.Status.DRAFT)
 
         # === Act ===
-        closed = tasks.close_expired_listings()
+        closed = close_expired_listings()
 
         # === Assert ===
         self.assertEqual(closed, 1)
@@ -40,7 +42,7 @@ class CloseExpiredListingsTaskTest(TestCase):
         make_active_listing(seller=self.seller, ends_at=timezone.now() - timedelta(minutes=1))
 
         # === Act ===
-        first, second = tasks.close_expired_listings(), tasks.close_expired_listings()
+        first, second = close_expired_listings(), close_expired_listings()
 
         # === Assert ===
         self.assertEqual((first, second), (1, 0))
@@ -58,7 +60,7 @@ class CloseExpiredListingsTaskTest(TestCase):
 
         # === Act ===
         with mock.patch.object(tasks, 'close_expired', flaky), self.assertLogs('listings.tasks', 'ERROR'):
-            closed = tasks.close_expired_listings()
+            closed = close_expired_listings()
 
         # === Assert ===
         self.assertEqual(closed, 1)
