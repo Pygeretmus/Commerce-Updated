@@ -8,7 +8,7 @@ from rest_framework import serializers
 from configuration.serializers import CustomModelSerializer, ImageUploadField
 
 from .constants import DURATIONS_DAYS, MIN_PRICE
-from .models import Bid, Category, Listing, ListingImage
+from .models import Bid, Category, Comment, Listing, ListingImage
 from .services.drafts import create_draft, update_draft
 from .services.masking import mask_name
 from .services.state import iso, leader_of
@@ -260,3 +260,24 @@ class BidCreateSerializer(serializers.Serializer):
 class BidPlacedSerializer(serializers.Serializer):
     bid = BidSerializer()
     state = ListingStateSerializer()
+
+
+class CommentCreateSerializer(serializers.Serializer):
+    body = serializers.CharField(max_length=1000, trim_whitespace=True)
+
+
+class CommentSerializer(serializers.ModelSerializer):
+    author = serializers.SlugRelatedField(slug_field='username', read_only=True)
+    is_seller = serializers.SerializerMethodField()
+    is_mine = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Comment
+        fields = ('id', 'author', 'body', 'created_at', 'is_seller', 'is_mine')
+
+    def get_is_seller(self, obj: Comment) -> bool:
+        return obj.author_id is not None and obj.author_id == self.context['listing'].seller_id
+
+    def get_is_mine(self, obj: Comment) -> bool:
+        request = self.context.get('request')
+        return bool(request and request.user.is_authenticated and obj.author_id == request.user.pk)

@@ -156,3 +156,26 @@ class Bid(models.Model):
 
     def __str__(self):
         return f'{self.amount} on listing {self.listing_id}'
+
+
+class Comment(models.Model):
+    """A question or an answer under a lot. Flat, not threaded; the seller's comments are the answers."""
+
+    listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name='comments')
+    # null: the author deleted their account
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='comments')
+    body = models.TextField(max_length=1000)
+    created_at = models.DateTimeField(auto_now_add=True)
+    # Soft delete: the row stays for moderation, the API no longer shows it
+    deleted_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ('created_at', 'id')
+        indexes: ClassVar[list[models.Index]] = [
+            models.Index(
+                fields=['listing', 'created_at'], condition=Q(deleted_at__isnull=True), name='comment_listing_idx'
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.author_id} on listing {self.listing_id}'
