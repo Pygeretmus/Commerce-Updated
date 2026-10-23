@@ -2,9 +2,8 @@ from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.generics import ListCreateAPIView
-from rest_framework.permissions import SAFE_METHODS, AllowAny, IsAuthenticated
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
-from rest_framework.throttling import ScopedRateThrottle
 
 from configuration.pagination import StandardPagination
 
@@ -28,15 +27,7 @@ class BidListCreateView(ListCreateAPIView):
     pagination_class = StandardPagination
     serializer_class = BidSerializer
     throttle_scope = 'bid'
-
-    def get_permissions(self):
-        return [AllowAny()] if self.request.method in SAFE_METHODS else [IsAuthenticated()]
-
-    def get_throttles(self):
-        throttles = super().get_throttles()
-        if self.request.method not in SAFE_METHODS:
-            throttles.append(ScopedRateThrottle())
-        return throttles
+    permission_classes = (IsAuthenticatedOrReadOnly,)
 
     def get_listing(self) -> Listing:
         return get_object_or_404(Listing.objects.visible_to(self.request.user), pk=self.kwargs['pk'])

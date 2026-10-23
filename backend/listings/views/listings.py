@@ -3,9 +3,8 @@ from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.generics import GenericAPIView, ListAPIView, ListCreateAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.parsers import FormParser, MultiPartParser
-from rest_framework.permissions import SAFE_METHODS, AllowAny, IsAuthenticated
+from rest_framework.permissions import SAFE_METHODS, AllowAny, IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
-from rest_framework.throttling import ScopedRateThrottle
 
 from configuration.pagination import StandardPagination
 
@@ -25,18 +24,6 @@ from ..services.closing import cancel, end_now
 from ..services.drafts import add_image, delete_draft, delete_image, publish, reorder_images, require_draft
 
 
-class WriteThrottleMixin:
-    """Throttles only the writing methods, reads stay on the global anon/user rates."""
-
-    throttle_scope = 'listing_write'
-
-    def get_throttles(self):
-        throttles = super().get_throttles()
-        if self.request.method not in SAFE_METHODS:
-            throttles.append(ScopedRateThrottle())
-        return throttles
-
-
 class CategoryListView(ListAPIView):
     permission_classes = (AllowAny,)
     serializer_class = CategorySerializer
@@ -47,12 +34,11 @@ class CategoryListView(ListAPIView):
 @extend_schema_view(
     create=extend_schema(request=ListingWriteSerializer, responses={201: ListingDetailSerializer}),
 )
-class ListingListCreateView(WriteThrottleMixin, ListCreateAPIView):
+class ListingListCreateView(ListCreateAPIView):
     pagination_class = StandardPagination
     queryset = Listing.objects.select_related('seller', 'category').with_images()
-
-    def get_permissions(self):
-        return [IsAuthenticated()] if self.request.method == 'POST' else [AllowAny()]
+    throttle_scope = 'listing_write'
+    permission_classes = (IsAuthenticatedOrReadOnly,)
 
     def get_serializer_class(self):
         return ListingWriteSerializer if self.request.method == 'POST' else ListingListSerializer
@@ -69,10 +55,11 @@ class ListingListCreateView(WriteThrottleMixin, ListCreateAPIView):
     partial_update=extend_schema(request=ListingWriteSerializer, responses={200: ListingDetailSerializer}),
     update=extend_schema(exclude=True),
 )
-class ListingDetailView(WriteThrottleMixin, RetrieveUpdateDestroyAPIView):
+class ListingDetailView(RetrieveUpdateDestroyAPIView):
     """One lot. Drafts exist only for their seller (404 for everyone else) and are the only editable state."""
 
     http_method_names = ('get', 'patch', 'delete', 'head', 'options')
+    throttle_scope = 'listing_write'
 
     def get_permissions(self):
         if self.request.method in SAFE_METHODS:
@@ -120,7 +107,7 @@ class DraftListingMixin:
         request={'multipart/form-data': ListingImageUploadSerializer}, responses={201: ListingImageSerializer}
     )
 )
-class ListingImageCreateView(DraftListingMixin, WriteThrottleMixin, GenericAPIView):
+class ListingImageCreateView(DraftListingMixin, GenericAPIView):
     """Uploads one photo to a draft."""
 
     throttle_scope = 'image_upload'
@@ -137,7 +124,7 @@ class ListingImageCreateView(DraftListingMixin, WriteThrottleMixin, GenericAPIVi
 
 
 @extend_schema(responses={204: None})
-class ListingImageDetailView(DraftListingMixin, WriteThrottleMixin, GenericAPIView):
+class ListingImageDetailView(DraftListingMixin, GenericAPIView):
     """Removes a photo from a draft."""
 
     throttle_scope = 'image_upload'
@@ -153,7 +140,7 @@ class ListingImageDetailView(DraftListingMixin, WriteThrottleMixin, GenericAPIVi
 @extend_schema_view(
     put=extend_schema(request=ListingImageOrderSerializer, responses={200: ListingImageSerializer(many=True)})
 )
-class ListingImageOrderView(DraftListingMixin, WriteThrottleMixin, GenericAPIView):
+class ListingImageOrderView(DraftListingMixin, GenericAPIView):
     """Sets the order of the photos of a draft: `ids` lists every photo once, first is the cover."""
 
     throttle_scope = 'image_upload'
@@ -169,11 +156,12 @@ class ListingImageOrderView(DraftListingMixin, WriteThrottleMixin, GenericAPIVie
 
 
 @extend_schema(request=ListingPublishSerializer, responses={200: ListingDetailSerializer})
-class ListingPublishView(DraftListingMixin, WriteThrottleMixin, GenericAPIView):
+class ListingPublishView(DraftListingMixin, GenericAPIView):
     """Puts a draft on sale. Needs at least one photo; afterwards the listing can no longer be edited."""
 
     serializer_class = ListingPublishSerializer
     not_draft_message = 'Only a draft can be published.'
+    throttle_scope = 'listing_write'
 
     def post(self, request, *args, **kwargs):
         listing = self.get_listing()
@@ -184,10 +172,11 @@ class ListingPublishView(DraftListingMixin, WriteThrottleMixin, GenericAPIView):
 
 
 @extend_schema(request=None, responses={200: ListingDetailSerializer})
-class ListingCancelView(DraftListingMixin, WriteThrottleMixin, GenericAPIView):
+class ListingCancelView(DraftListingMixin, GenericAPIView):
     """Withdraws an active lot. Only possible while nobody has bid."""
 
     serializer_class = ListingDetailSerializer
+    throttle_scope = 'listing_write'
 
     def get_listing(self) -> Listing:
         # 404 (somebody else's draft) -> 403 (not the seller); the state is checked by the service
