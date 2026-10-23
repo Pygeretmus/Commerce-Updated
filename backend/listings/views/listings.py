@@ -21,6 +21,7 @@ from ..serializers import (
     ListingPublishSerializer,
     ListingWriteSerializer,
 )
+from ..services.closing import cancel, end_now
 from ..services.drafts import add_image, delete_draft, delete_image, publish, reorder_images, require_draft
 
 
@@ -180,3 +181,35 @@ class ListingPublishView(DraftListingMixin, WriteThrottleMixin, GenericAPIView):
         serializer.is_valid(raise_exception=True)
         listing = publish(listing, serializer.validated_data['duration_days'])
         return Response(ListingDetailSerializer(listing, context=self.get_serializer_context()).data)
+
+
+@extend_schema(request=None, responses={200: ListingDetailSerializer})
+class ListingCancelView(DraftListingMixin, WriteThrottleMixin, GenericAPIView):
+    """Withdraws an active lot. Only possible while nobody has bid."""
+
+    serializer_class = ListingDetailSerializer
+
+    def get_listing(self) -> Listing:
+        # 404 (somebody else's draft) -> 403 (not the seller); the state is checked by the service
+        listing = get_object_or_404(Listing.objects.visible_to(self.request.user), pk=self.kwargs['pk'])
+        self.check_object_permissions(self.request, listing)
+        return listing
+
+    def post(self, request, *args, **kwargs):
+        listing = self.get_listing()
+        cancel(listing.pk)
+        return Response(self._detail(listing.pk))
+
+    def _detail(self, pk: int) -> dict:
+        listing = Listing.objects.select_related('seller', 'category', 'top_bid__bidder').with_images().get(pk=pk)
+        return ListingDetailSerializer(listing, context=self.get_serializer_context()).data
+
+
+@extend_schema(request=None, responses={200: ListingDetailSerializer})
+class ListingEndNowView(ListingCancelView):
+    """The seller accepts the current top bid and ends the auction at once. Needs at least one bid."""
+
+    def post(self, request, *args, **kwargs):
+        listing = self.get_listing()
+        end_now(listing.pk)
+        return Response(self._detail(listing.pk))

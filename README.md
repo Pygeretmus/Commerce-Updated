@@ -89,6 +89,8 @@ Base path `/api`. All endpoints except registration and login need `Authorizatio
 | `PUT`                  | `/listings/{id}/images/order/` | Change images order                                          |
 | `DELETE`               | `/listings/{id}/images/{id}/`  | Remove image                                                 |
 | `POST`                 | `/listings/{id}/publish/`      | Publish draft                                                |
+| `POST`                 | `/listings/{id}/cancel/`       | Cancel active listing                                        |
+| `POST`                 | `/listings/{id}/end_now/`      | End active listing now                                       |
 | `GET` `POST`           | `listings/{id}/bids/`          | Bid history (masked); place a bid                            |
 
 ## Development

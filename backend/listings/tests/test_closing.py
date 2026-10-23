@@ -7,7 +7,7 @@ from django.utils import timezone
 from django_dynamic_fixture import G
 
 from ..models import Listing
-from ..services.closing import close_expired
+from ..services.closing import ListingStateConflict, cancel, close_expired, end_now
 from .helpers import bid_on, make_active_listing, make_listing
 
 User = get_user_model()
@@ -153,3 +153,85 @@ class CloseExpiredTest(TestCase):
         listing.refresh_from_db()
         self.assertEqual(listing.status, Listing.Status.ENDED)
         self.assertFalse(listing.sold)
+
+
+class EndNowTest(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.seller = G(User)
+        cls.alice = G(User)
+
+    def test_it_sells_to_the_top_bidder_even_if_the_reserve_is_not_met(self):
+        # === Arrange === (the seller chose to accept the offer)
+        listing = make_active_listing(seller=self.seller, starting_price=Decimal(10), reserve_price=Decimal(100))
+        bid_on(listing, self.alice, '12.00')
+
+        # === Act ===
+        end_now(listing.pk, now=NOW)
+
+        # === Assert ===
+        listing.refresh_from_db()
+        self.assertEqual(listing.status, Listing.Status.ENDED)
+        self.assertTrue(listing.sold)
+        self.assertEqual(listing.closed_at, NOW)
+        self.assertLessEqual(listing.ends_at, NOW)
+
+    def test_it_needs_a_bid(self):
+        # === Arrange ===
+        listing = make_active_listing(seller=self.seller)
+
+        # === Act & Assert ===
+        with self.assertRaises(ListingStateConflict) as raised:
+            end_now(listing.pk)
+        self.assertEqual(raised.exception.get_codes(), 'no_bids')
+
+    def test_it_needs_an_active_listing(self):
+        # === Arrange ===
+        listing = make_listing(seller=self.seller, status=Listing.Status.ENDED)
+
+        # === Act & Assert ===
+        with self.assertRaises(ListingStateConflict) as raised:
+            end_now(listing.pk)
+        self.assertEqual(raised.exception.get_codes(), 'not_active')
+
+
+class CancelTest(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.seller = G(User)
+
+    def test_it_cancels_a_listing_without_bids(self):
+        # === Arrange ===
+        listing = make_active_listing(seller=self.seller)
+
+        # === Act ===
+        cancel(listing.pk, now=NOW)
+
+        # === Assert ===
+        listing.refresh_from_db()
+        self.assertEqual(listing.status, Listing.Status.CANCELLED)
+        self.assertEqual(listing.closed_at, NOW)
+        self.assertFalse(listing.sold)
+
+    def test_it_refuses_when_there_are_bids(self):
+        # === Arrange ===
+        listing = make_active_listing(seller=self.seller, starting_price=Decimal(10))
+        bid_on(listing, G(User), '10.00')
+
+        # === Act & Assert ===
+        with self.assertRaises(ListingStateConflict) as raised:
+            cancel(listing.pk)
+        self.assertEqual(raised.exception.get_codes(), 'has_bids')
+        listing.refresh_from_db()
+        self.assertEqual(listing.status, Listing.Status.ACTIVE)
+
+    def test_it_refuses_a_draft_and_a_finished_listing(self):
+        for state in (Listing.Status.DRAFT, Listing.Status.ENDED, Listing.Status.CANCELLED):
+            with self.subTest(status=state):
+                # === Arrange ===
+                listing = make_listing(seller=self.seller, status=state)
+
+                # === Act & Assert ===
+                with self.assertRaises(ListingStateConflict) as raised:
+                    cancel(listing.pk)
+                self.assertEqual(raised.exception.get_codes(), 'not_active')

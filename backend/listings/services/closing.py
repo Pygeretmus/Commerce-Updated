@@ -5,10 +5,19 @@ from datetime import datetime
 
 from django.db import transaction
 from django.utils import timezone
+from rest_framework.exceptions import APIException
 
 from ..models import Listing
 
 logger = logging.getLogger(__name__)
+
+
+class ListingStateConflict(APIException):
+    """The listing is not in a state where this action makes sense (HTTP 409). `code` tells which rule."""
+
+    status_code = 409
+    default_detail = 'This action is not possible for the listing in its current state.'
+    default_code = 'invalid_state'
 
 
 def _lock(listing_id: int) -> Listing | None:
@@ -37,3 +46,34 @@ def close_expired(listing_id: int, now: datetime | None = None) -> bool:
             return False
         _close(listing, now, listing.top_bid_id is not None and listing.reserve_met)
         return True
+
+
+def end_now(listing_id: int, now: datetime | None = None) -> Listing:
+    """The seller accepts the current top bid: the auction ends at once and the top bidder wins."""
+    now = now or timezone.now()
+    with transaction.atomic():
+        listing = _lock(listing_id)
+        if listing is None or listing.status != Listing.Status.ACTIVE:
+            raise ListingStateConflict('Only an active listing can be ended.', 'not_active')
+        if listing.bids_count == 0:
+            raise ListingStateConflict('There are no bids yet. Cancel the listing instead.', 'no_bids')
+        listing.ends_at = min(listing.ends_at, now)
+        listing.save(update_fields=['ends_at'])
+        _close(listing, now, sold=True)
+        return listing
+
+
+def cancel(listing_id: int, now: datetime | None = None) -> Listing:
+    """The seller withdraws a lot. Only possible while there are no bids."""
+    now = now or timezone.now()
+    with transaction.atomic():
+        listing = _lock(listing_id)
+        if listing is None or listing.status != Listing.Status.ACTIVE:
+            raise ListingStateConflict('Only an active listing can be cancelled.', 'not_active')
+        if listing.bids_count > 0:
+            raise ListingStateConflict('A listing with bids cannot be cancelled.', 'has_bids')
+        listing.status = Listing.Status.CANCELLED
+        listing.closed_at = now
+        listing.sold = False
+        listing.save(update_fields=['status', 'closed_at', 'sold', 'updated_at'])
+        return listing

@@ -94,6 +94,7 @@ class ListingDetailSerializer(CustomModelSerializer):
     reserve_met = serializers.SerializerMethodField()
     next_min_bid = serializers.SerializerMethodField()
     leader = serializers.SerializerMethodField()
+    winner = serializers.SerializerMethodField()
     is_ended = serializers.SerializerMethodField()
     seconds_left = serializers.SerializerMethodField()
     server_time = serializers.SerializerMethodField()
@@ -113,10 +114,13 @@ class ListingDetailSerializer(CustomModelSerializer):
             'bids_count',
             'next_min_bid',
             'leader',
+            'winner',
             'status',
             'is_ended',
+            'sold',
             'published_at',
             'ends_at',
+            'closed_at',
             'seconds_left',
             'server_time',
             'created_at',
@@ -142,6 +146,9 @@ class ListingDetailSerializer(CustomModelSerializer):
 
     def get_leader(self, obj: Listing) -> str | None:
         return leader_of(obj)
+
+    def get_winner(self, obj: Listing) -> str | None:
+        return leader_of(obj) if obj.sold else None
 
     def get_is_ended(self, obj: Listing) -> bool:
         return obj.is_ended()
