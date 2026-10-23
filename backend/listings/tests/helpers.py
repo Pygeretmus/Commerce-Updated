@@ -67,6 +67,6 @@ def bid_on(listing: Listing, bidder, amount) -> Bid:
     """Places a bid through the real service (so the listing state stays consistent)."""
     from decimal import Decimal
 
-    from listings.services.bidding import place_bid
+    from ..services.bidding import place_bid
 
     return place_bid(listing.pk, bidder, Decimal(amount))
