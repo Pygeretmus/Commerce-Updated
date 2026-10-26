@@ -5,6 +5,7 @@ from django_filters.rest_framework import BooleanFilter, CharFilter, ChoiceFilte
 from rest_framework import serializers
 from rest_framework.exceptions import NotAuthenticated
 
+from .constants import BID_STATUSES
 from .models import Bid, Listing, Watch
 
 # The same expression is used by the GIN index (migration 0007), so PostgreSQL can answer from the index
@@ -91,3 +92,17 @@ class ListingFilter(FilterSet):
         if not data.get('ordering'):
             queryset = queryset.order_by(*ORDERINGS['newest'])
         return queryset
+
+
+class MyBidFilter(FilterSet):
+    status = ChoiceFilter(
+        field_name='my_status',
+        choices=[(name, name) for name in BID_STATUSES],
+        empty_label=None,
+    )
+
+
+class MyListingFilter(FilterSet):
+    class Meta:
+        model = Listing
+        fields = ('status',)

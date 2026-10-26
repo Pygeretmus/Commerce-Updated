@@ -308,3 +308,45 @@ class CommentSerializer(serializers.ModelSerializer):
     def get_is_mine(self, obj: Comment) -> bool:
         request = self.context.get('request')
         return bool(request and request.user.is_authenticated and obj.author_id == request.user.pk)
+
+
+class MyBidSerializer(ListingListSerializer):
+    """A row of "my bids": one lot, the highest amount I offered, and where I stand."""
+
+    my_highest_bid = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    my_status = serializers.CharField(read_only=True)
+
+    class Meta(ListingListSerializer.Meta):
+        fields = (*ListingListSerializer.Meta.fields, 'my_highest_bid', 'my_status')
+
+
+class MyListingSerializer(ListingListSerializer):
+    """A row of the seller's own dashboard: the list row plus what only the seller may see."""
+
+    winner = serializers.SerializerMethodField()
+
+    class Meta(ListingListSerializer.Meta):
+        fields = (*ListingListSerializer.Meta.fields, 'reserve_price', 'closed_at', 'created_at', 'winner')
+
+    def get_winner(self, obj: Listing) -> str | None:
+        return leader_of(obj) if obj.sold else None
+
+
+class BidCountsSerializer(serializers.Serializer):
+    winning = serializers.IntegerField()
+    outbid = serializers.IntegerField()
+    won = serializers.IntegerField()
+    lost = serializers.IntegerField()
+
+
+class ListingCountsSerializer(serializers.Serializer):
+    draft = serializers.IntegerField()
+    active = serializers.IntegerField()
+    ended = serializers.IntegerField()
+    cancelled = serializers.IntegerField()
+
+
+class MeSummarySerializer(serializers.Serializer):
+    bids = BidCountsSerializer()
+    listings = ListingCountsSerializer()
+    watching = serializers.IntegerField()

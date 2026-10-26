@@ -13,6 +13,7 @@ from .views.listings import (
     ListingListCreateView,
     ListingPublishView,
 )
+from .views.me import MyBidsView, MyListingsView, MySummaryView
 
 app_name = 'listings'
 
@@ -30,4 +31,7 @@ urlpatterns = [
     path('listings/<int:pk>/comments/', CommentListCreateView.as_view(), name='comment-list'),
     path('listings/<int:pk>/watch/', WatchView.as_view(), name='listing-watch'),
     path('comments/<int:pk>/', CommentDestroyView.as_view(), name='comment-detail'),
+    path('me/bids/', MyBidsView.as_view(), name='me-bids'),
+    path('me/listings/', MyListingsView.as_view(), name='me-listings'),
+    path('me/summary/', MySummaryView.as_view(), name='me-summary'),
 ]

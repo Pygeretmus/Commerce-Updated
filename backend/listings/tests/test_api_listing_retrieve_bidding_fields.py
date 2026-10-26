@@ -8,7 +8,7 @@ from django_dynamic_fixture import G
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from ..models import Listing
+from ..models import Listing, Watch
 from ..services.closing import close_expired
 from .helpers import bid_on, make_active_listing
 
@@ -69,6 +69,16 @@ class APIListingRetrieveBiddingFieldsTest(APITestCase):
         self.assertEqual(self.get()['my_bid_status'], 'winning')
         bid_on(self.listing, self.bob, '11.00')
         self.assertEqual(self.get()['my_bid_status'], 'outbid')
+
+    def test_it_reports_watching_and_seller_flags_to_the_right_user(self):
+        # === Arrange ===
+        Watch.objects.create(user=self.alice, listing=self.listing)
+
+        # === Act & Assert ===
+        self.client.force_authenticate(self.alice)
+        self.assertEqual((self.get()['is_watching'], self.get()['is_seller']), (True, False))
+        self.client.force_authenticate(self.seller)
+        self.assertEqual((self.get()['is_watching'], self.get()['is_seller']), (False, True))
 
     def test_it_says_whether_the_secret_reserve_is_met_but_never_its_value(self):
         # === Arrange ===

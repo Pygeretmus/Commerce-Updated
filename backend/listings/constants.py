@@ -16,3 +16,5 @@ SNIPING_WINDOW = timedelta(minutes=2)
 MAX_BID = Decimal('9999999999.99')
 
 CENT = Decimal('0.01')
+
+BID_STATUSES = ('winning', 'outbid', 'won', 'lost')
