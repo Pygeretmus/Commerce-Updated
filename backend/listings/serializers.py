@@ -43,6 +43,7 @@ class ListingListSerializer(CustomModelSerializer):
             'bids_count',
             'status',
             'is_ended',
+            'sold',
             'published_at',
             'ends_at',
             'category',
@@ -87,6 +88,11 @@ class ListingImageSerializer(CustomModelSerializer):
 
 
 class ListingDetailSerializer(CustomModelSerializer):
+    """
+    One lot. The queryset should select_related seller, category and top_bid__bidder, and may annotate
+    `is_watching_flag` (Exists) to keep the answer at a fixed number of queries.
+    """
+
     category = CategoryBriefSerializer(read_only=True)
     seller = serializers.SlugRelatedField(slug_field='username', read_only=True)
     images = ListingImageSerializer(many=True, read_only=True)
@@ -99,6 +105,7 @@ class ListingDetailSerializer(CustomModelSerializer):
     seconds_left = serializers.SerializerMethodField()
     server_time = serializers.SerializerMethodField()
     is_seller = serializers.SerializerMethodField()
+    is_watching = serializers.SerializerMethodField()
 
     class Meta:
         model = Listing
@@ -128,6 +135,7 @@ class ListingDetailSerializer(CustomModelSerializer):
             'seller',
             'images',
             'is_seller',
+            'is_watching',
         )
 
     def _user_id(self) -> int | None:
@@ -163,6 +171,9 @@ class ListingDetailSerializer(CustomModelSerializer):
 
     def get_is_seller(self, obj: Listing) -> bool:
         return self._user_id() is not None and obj.seller_id == self._user_id()
+
+    def get_is_watching(self, obj: Listing) -> bool:
+        return bool(getattr(obj, 'is_watching_flag', False))
 
     def to_representation(self, instance: Listing):
         data = super().to_representation(instance)

@@ -94,6 +94,7 @@ Base path `/api`. All endpoints except registration and login need `Authorizatio
 | `GET` `POST`           | `/listings/{id}/bids/`          | Bid history (masked); place a bid                            |
 | `GET` `POST`           | `/listings/{id}/comments/`      | Ask question, read answer                                    |
 | `DELETE`               | `/listings/{id}/comments/{id}/` | Delete comment                                               |
+| `PUT` `DELETE`         | `/listings/{id}/watch/`         | Add/remove listing to/from watchlist                         |
 
 ## Development
 

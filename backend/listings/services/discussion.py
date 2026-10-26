@@ -4,7 +4,7 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
 
-from ..models import Comment, Listing
+from ..models import Comment, Listing, Watch
 
 
 @transaction.atomic
@@ -18,3 +18,12 @@ def delete_comment(comment: Comment, user) -> None:
         raise PermissionDenied('You can only delete your own comments.')
     comment.deleted_at = timezone.now()
     comment.save(update_fields=['deleted_at'])
+
+
+def watch(listing: Listing, user) -> None:
+    """Idempotent: watching twice is fine, and two parallel requests cannot create a duplicate."""
+    Watch.objects.get_or_create(user=user, listing=listing)
+
+
+def unwatch(listing: Listing, user) -> None:
+    Watch.objects.filter(user=user, listing=listing).delete()

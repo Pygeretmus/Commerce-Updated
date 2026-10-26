@@ -1,3 +1,4 @@
+from django.db.models import BooleanField, Exists, OuterRef, Value
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status
@@ -8,7 +9,7 @@ from rest_framework.response import Response
 
 from configuration.pagination import StandardPagination
 
-from ..models import Category, Listing, ListingImage
+from ..models import Category, Listing, ListingImage, Watch
 from ..permissions import IsListingSeller
 from ..serializers import (
     CategorySerializer,
@@ -71,7 +72,16 @@ class ListingDetailView(RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        return Listing.objects.visible_to(user).select_related('seller', 'category').with_images()
+        queryset = (
+            Listing.objects.visible_to(user).select_related('seller', 'category', 'top_bid__bidder').with_images()
+        )
+        if user.is_authenticated:
+            return queryset.annotate(
+                is_watching_flag=Exists(Watch.objects.filter(user=user, listing=OuterRef('pk'))),
+            )
+        return queryset.annotate(
+            is_watching_flag=Value(False, output_field=BooleanField()),
+        )
 
     def update(self, request, *args, **kwargs):
         listing = self.get_object()

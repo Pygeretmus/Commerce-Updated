@@ -10,7 +10,7 @@ from configuration.pagination import StandardPagination
 
 from ..models import Comment, Listing
 from ..serializers import CommentCreateSerializer, CommentSerializer
-from ..services.discussion import delete_comment, post_comment
+from ..services.discussion import delete_comment, post_comment, unwatch, watch
 
 
 def public_listing(pk: int) -> Listing:
@@ -58,4 +58,18 @@ class CommentDestroyView(GenericAPIView):
     def delete(self, request, *args, **kwargs):
         comment = get_object_or_404(Comment, pk=kwargs['pk'], deleted_at__isnull=True)
         delete_comment(comment, request.user)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class WatchView(GenericAPIView):
+    """Adds a lot to my watchlist (PUT) or removes it (DELETE). Both are idempotent."""
+
+    serializer_class = None
+
+    def put(self, request, *args, **kwargs):
+        watch(public_listing(kwargs['pk']), request.user)
+        return Response(status=status.HTTP_200_OK)
+
+    def delete(self, request, *args, **kwargs):
+        unwatch(public_listing(kwargs['pk']), request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)

@@ -179,3 +179,19 @@ class Comment(models.Model):
 
     def __str__(self):
         return f'{self.author_id} on listing {self.listing_id}'
+
+
+class Watch(models.Model):
+    """A lot on somebody's watchlist."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='watches')
+    listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name='watches')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            models.UniqueConstraint(fields=['user', 'listing'], name='watch_unique_user_listing'),
+        ]
+        indexes: ClassVar[list[models.Index]] = [
+            models.Index(F('user'), F('created_at').desc(), name='watch_user_created_idx'),
+        ]

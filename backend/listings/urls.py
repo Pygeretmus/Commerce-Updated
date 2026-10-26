@@ -1,7 +1,7 @@
 from django.urls import path
 
 from .views.bids import BidListCreateView
-from .views.discussion import CommentDestroyView, CommentListCreateView
+from .views.discussion import CommentDestroyView, CommentListCreateView, WatchView
 from .views.listings import (
     CategoryListView,
     ListingCancelView,
@@ -28,5 +28,6 @@ urlpatterns = [
     path('listings/<int:pk>/images/<int:image_id>/', ListingImageDetailView.as_view(), name='listing-image-detail'),
     path('listings/<int:pk>/bids/', BidListCreateView.as_view(), name='bid-list'),
     path('listings/<int:pk>/comments/', CommentListCreateView.as_view(), name='comment-list'),
+    path('listings/<int:pk>/watch/', WatchView.as_view(), name='listing-watch'),
     path('comments/<int:pk>/', CommentDestroyView.as_view(), name='comment-detail'),
 ]

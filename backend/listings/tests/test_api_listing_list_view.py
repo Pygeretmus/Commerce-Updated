@@ -47,6 +47,7 @@ class APIListingListViewTest(APITestCase):
                     'ends_at': listing.ends_at.isoformat().replace('+00:00', 'Z'),
                     'category': {'name': 'Art', 'slug': 'art'},
                     'seller': 'seller',
+                    'sold': None,
                     'cover': None,
                 }
             ],
