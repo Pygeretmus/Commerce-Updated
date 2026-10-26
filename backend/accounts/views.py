@@ -1,10 +1,13 @@
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from rest_framework import status
 from rest_framework.generics import CreateAPIView, GenericAPIView, RetrieveUpdateAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle, UserRateThrottle
 from rest_framework_simplejwt.views import TokenObtainPairView
+
+from listings.services.drafts import delete_user_drafts
 
 from .serializers import (
     AccountCreateSerializer,
@@ -71,5 +74,7 @@ class AccountDestroyView(GenericAPIView):
         user = self.request.user
         serializer = self.get_serializer(user, data=request.data)
         serializer.is_valid(raise_exception=True)
-        user.delete()
+        with transaction.atomic():
+            delete_user_drafts(user)
+            user.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)

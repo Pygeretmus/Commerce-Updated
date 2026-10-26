@@ -163,3 +163,27 @@ def publish(listing: Listing, duration_days: int) -> Listing:
     locked.ends_at = now + timedelta(days=duration_days)
     locked.save(update_fields=['status', 'published_at', 'ends_at', 'updated_at'])
     return locked
+
+
+def check_account_deletable(user: User) -> None:
+    """
+    An account cannot disappear while other people depend on it: a seller with a running auction
+    would leave the buyers with nobody to deal with, and the top bidder of a running auction would
+    leave it with a winner who does not exist. Raises a ValidationError that says what to do first.
+    """
+    if Listing.objects.filter(seller=user, status=Listing.Status.ACTIVE).exists():
+        raise serializers.ValidationError(
+            'You have active listings. End or cancel them before deleting your account.', code='has_active_listings'
+        )
+    if Listing.objects.filter(status=Listing.Status.ACTIVE, top_bid__bidder=user).exists():
+        raise serializers.ValidationError(
+            'You have the highest bid on an active auction. Wait until it ends before deleting your account.',
+            code='is_top_bidder',
+        )
+
+
+@transaction.atomic
+def delete_user_drafts(user: User) -> None:
+    """Drafts (and their photos) are private to the seller: nobody else could ever see them again."""
+    for draft in Listing.objects.filter(seller=user, status=Listing.Status.DRAFT):
+        delete_draft(draft)

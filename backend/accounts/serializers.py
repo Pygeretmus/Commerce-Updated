@@ -70,5 +70,8 @@ class AccountDestroySerializer(CheckCurrentPasswordMixin, serializers.Serializer
     current_password = serializers.CharField(write_only=True, max_length=255)
 
     def validate(self, attrs: dict) -> dict:
+        from listings.services.drafts import check_account_deletable
+
         self._require_current_password(self.instance, attrs)
+        check_account_deletable(self.instance)
         return attrs
