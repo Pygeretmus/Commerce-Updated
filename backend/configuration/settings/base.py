@@ -36,7 +36,7 @@ THIRD_PARTY_APPS = [
     'django_filters',
 ]
 
-PROJECT_APPS = ['accounts', 'listings']
+PROJECT_APPS = ['accounts', 'listings', 'notifications']
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + PROJECT_APPS
 
