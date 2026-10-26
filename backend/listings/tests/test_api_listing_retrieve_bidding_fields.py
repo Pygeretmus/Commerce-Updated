@@ -43,6 +43,8 @@ class APIListingRetrieveBiddingFieldsTest(APITestCase):
         self.assertFalse(data['is_ended'])
         self.assertGreater(data['seconds_left'], 0)
         self.assertIsNotNone(data['server_time'])
+        self.assertEqual((data['is_seller'], data['is_watching'], data['my_bid_status']), (False, False, None))
+        self.assertEqual((data['sold'], data['winner']), (None, None))
 
     def test_it_shows_the_price_leader_and_minimum_after_bids(self):
         # === Arrange ===
@@ -57,6 +59,16 @@ class APIListingRetrieveBiddingFieldsTest(APITestCase):
             (data['current_price'], data['bids_count'], data['next_min_bid'], data['leader']),
             ('12.00', 2, '12.50', 'b***y'),
         )
+
+    def test_it_tells_me_my_bid_status(self):
+        # === Arrange ===
+        bid_on(self.listing, self.alice, '10.00')
+        self.client.force_authenticate(self.alice)
+
+        # === Act & Assert ===
+        self.assertEqual(self.get()['my_bid_status'], 'winning')
+        bid_on(self.listing, self.bob, '11.00')
+        self.assertEqual(self.get()['my_bid_status'], 'outbid')
 
     def test_it_says_whether_the_secret_reserve_is_met_but_never_its_value(self):
         # === Arrange ===
@@ -98,5 +110,17 @@ class APIListingRetrieveBiddingFieldsTest(APITestCase):
         data = self.get()
 
         # === Assert ===
-        self.assertEqual(data['status'], 'ended')
+        self.assertEqual(
+            (data['status'], data['sold'], data['winner'], data['my_bid_status']), ('ended', True, 'a***e', 'won')
+        )
         self.assertIsNone(data['seconds_left'])
+        self.assertIsNotNone(data['closed_at'])
+
+    def test_it_uses_a_fixed_number_of_queries(self):
+        # === Arrange ===
+        bid_on(self.listing, self.alice, '10.00')
+        self.client.force_authenticate(self.bob)
+
+        # === Act & Assert === (the lot with seller, category, leader and my flags in one query, then the images)
+        with self.assertNumQueries(2):
+            self.client.get(self.url)

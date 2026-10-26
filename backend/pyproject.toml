@@ -14,6 +14,7 @@ dependencies = [
     "psycopg[binary]>=3.3.4",                   # PostgreSQL database connections
     "celery[redis]>=5.6.3",                     # distributed task queue with Redis broker support
     "pillow>=13.0.0",                           # imaging library
+    "django-filter>=26.2",                      # filters library
 ]
 
 [dependency-groups]

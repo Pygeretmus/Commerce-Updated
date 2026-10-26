@@ -87,10 +87,18 @@ class ListingImageSerializer(CustomModelSerializer):
         return self._absolute(obj.thumbnail) if obj.thumbnail else None
 
 
+def bid_status(listing: Listing, user_id: int | None) -> str:
+    """What a bid on this lot means for a bidder: winning/outbid while it runs, won/lost afterwards."""
+    leading = listing.top_bid is not None and listing.top_bid.bidder_id == user_id
+    if listing.status == Listing.Status.ACTIVE:
+        return 'winning' if leading else 'outbid'
+    return 'won' if listing.sold and leading else 'lost'
+
+
 class ListingDetailSerializer(CustomModelSerializer):
     """
     One lot. The queryset should select_related seller, category and top_bid__bidder, and may annotate
-    `is_watching_flag` (Exists) to keep the answer at a fixed number of queries.
+    `is_watching_flag` and `has_my_bid` (Exists) to keep the answer at a fixed number of queries.
     """
 
     category = CategoryBriefSerializer(read_only=True)
@@ -106,6 +114,7 @@ class ListingDetailSerializer(CustomModelSerializer):
     server_time = serializers.SerializerMethodField()
     is_seller = serializers.SerializerMethodField()
     is_watching = serializers.SerializerMethodField()
+    my_bid_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Listing
@@ -136,6 +145,7 @@ class ListingDetailSerializer(CustomModelSerializer):
             'images',
             'is_seller',
             'is_watching',
+            'my_bid_status',
         )
 
     def _user_id(self) -> int | None:
@@ -174,6 +184,12 @@ class ListingDetailSerializer(CustomModelSerializer):
 
     def get_is_watching(self, obj: Listing) -> bool:
         return bool(getattr(obj, 'is_watching_flag', False))
+
+    @extend_schema_field(serializers.ChoiceField(choices=['winning', 'outbid', 'won', 'lost'], allow_null=True))
+    def get_my_bid_status(self, obj: Listing) -> str | None:
+        if not getattr(obj, 'has_my_bid', False):
+            return None
+        return bid_status(obj, self._user_id())
 
     def to_representation(self, instance: Listing):
         data = super().to_representation(instance)

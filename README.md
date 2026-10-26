@@ -83,7 +83,7 @@ Base path `/api`. All endpoints except registration and login need `Authorizatio
 | `PUT`                  | `/accounts/password/`           | Change password                                              |
 | `POST`                 | `/accounts/destroy/`            | Delete the account (needs `current_password`)                |
 | `GET`                  | `/categories/`                  | Categories                                                   |
-| `GET` `POST`           | `/listings/`                    | Catalogue, create draft                                      |
+| `GET` `POST`           | `/listings/`                    | Catalogue (filters, search, ordering), create draft          |
 | `GET` `PATCH` `DELETE` | `/listings/{id}/`               | Lot detail; edit or delete a draft                           |
 | `POST`                 | `/listings/{id}/images/`        | Add image to the draft                                       |
 | `PUT`                  | `/listings/{id}/images/order/`  | Change images order                                          |

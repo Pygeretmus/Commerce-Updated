@@ -84,6 +84,22 @@ class APIListingPublishViewTest(APITestCase):
         # === Assert ===
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
+    def test_it_shows_the_listing_in_the_public_catalogue(self):
+        # === Arrange ===
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse('listings:listing-list')).json()['count'], 0)
+        self.client.force_authenticate(user=self.seller)
+
+        # === Act ===
+        self.client.post(self.url, data={'duration_days': 7})
+
+        # === Assert ===
+        self.client.logout()
+        results = self.client.get(reverse('listings:listing-list')).json()['results']
+        self.assertEqual([r['id'] for r in results], [self.listing.pk])
+        self.assertIsNotNone(results[0]['cover'])
+        self.assertIsNotNone(results[0]['ends_at'])
+
     def test_it_ignores_other_fields_sent_by_client(self):
         # === Act ===
         with mock.patch('listings.services.drafts.timezone.now', return_value=NOW):

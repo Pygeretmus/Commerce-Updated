@@ -1,13 +1,16 @@
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
+from django.utils import timezone
 from django_dynamic_fixture import G
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from ..models import Category, ListingImage
+from ..models import Category, Listing, ListingImage
 from .helpers import make_active_listing
 
 User = get_user_model()
@@ -52,6 +55,99 @@ class APIListingListViewTest(APITestCase):
                 }
             ],
         )
+
+    def test_it_returns_only_active_listings_by_default(self):
+        # === Arrange ===
+        active = make_active_listing()
+        make_active_listing(status=Listing.Status.DRAFT, published_at=None, ends_at=None)
+        make_active_listing(status=Listing.Status.ENDED)
+        make_active_listing(status=Listing.Status.CANCELLED)
+
+        # === Act ===
+        response = self.client.get(self.url)
+
+        # === Assert ===
+        self.assertEqual([r['id'] for r in response.json()['results']], [active.pk])
+
+    def test_it_returns_ended_listings_with_status_filter(self):
+        # === Arrange ===
+        make_active_listing()
+        ended = make_active_listing(status=Listing.Status.ENDED)
+
+        # === Act ===
+        response = self.client.get(self.url, {'status': 'ended'})
+
+        # === Assert ===
+        self.assertEqual([r['id'] for r in response.json()['results']], [ended.pk])
+
+    def test_it_never_returns_drafts_or_cancelled_listings(self):
+        # === Arrange ===
+        make_active_listing(status=Listing.Status.DRAFT, published_at=None, ends_at=None)
+        make_active_listing(status=Listing.Status.CANCELLED)
+
+        for value in ('draft', 'cancelled'):
+            with self.subTest(status=value):
+                # === Act ===
+                response = self.client.get(self.url, {'status': value})
+
+                # === Assert ===
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_it_returns_error_if_status_is_not_valid(self):
+        # === Act ===
+        response = self.client.get(self.url, {'status': 'bogus'})
+
+        # === Assert ===
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.json(),
+            {
+                'status': 400,
+                'errors': [
+                    {
+                        'param': 'status',
+                        'message': 'Select a valid choice. bogus is not one of the available choices.',
+                        'code': 'invalid_choice',
+                    }
+                ],
+            },
+        )
+
+    def test_it_filters_by_category(self):
+        # === Arrange ===
+        books = Category.objects.get(slug='books')
+        make_active_listing(category=self.category)
+        in_books = make_active_listing(category=books)
+
+        # === Act ===
+        response = self.client.get(self.url, {'category': 'books'})
+
+        # === Assert ===
+        self.assertEqual([r['id'] for r in response.json()['results']], [in_books.pk])
+
+    def test_it_returns_empty_list_for_unknown_category(self):
+        # === Arrange ===
+        make_active_listing()
+
+        # === Act ===
+        response = self.client.get(self.url, {'category': 'no-such-category'})
+
+        # === Assert ===
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()['results'], [])
+
+    def test_it_returns_newest_listings_first(self):
+        # === Arrange ===
+        now = timezone.now()
+        old = make_active_listing(published_at=now - timedelta(hours=2))
+        new = make_active_listing(published_at=now)
+        middle = make_active_listing(published_at=now - timedelta(hours=1))
+
+        # === Act ===
+        response = self.client.get(self.url)
+
+        # === Assert ===
+        self.assertEqual([r['id'] for r in response.json()['results']], [new.pk, middle.pk, old.pk])
 
     def test_it_paginates_results(self):
         # === Arrange ===

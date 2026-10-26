@@ -1,5 +1,6 @@
 from django.db.models import BooleanField, Exists, OuterRef, Value
 from django.shortcuts import get_object_or_404
+from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.generics import GenericAPIView, ListAPIView, ListCreateAPIView, RetrieveUpdateDestroyAPIView
@@ -9,7 +10,8 @@ from rest_framework.response import Response
 
 from configuration.pagination import StandardPagination
 
-from ..models import Category, Listing, ListingImage, Watch
+from ..filters import ListingFilter
+from ..models import Bid, Category, Listing, ListingImage, Watch
 from ..permissions import IsListingSeller
 from ..serializers import (
     CategorySerializer,
@@ -36,10 +38,14 @@ class CategoryListView(ListAPIView):
     create=extend_schema(request=ListingWriteSerializer, responses={201: ListingDetailSerializer}),
 )
 class ListingListCreateView(ListCreateAPIView):
+    """Public catalogue (active lots by default, finished ones with `?status=ended`) and draft creation."""
+
     pagination_class = StandardPagination
     queryset = Listing.objects.select_related('seller', 'category').with_images()
     throttle_scope = 'listing_write'
     permission_classes = (IsAuthenticatedOrReadOnly,)
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = ListingFilter
 
     def get_serializer_class(self):
         return ListingWriteSerializer if self.request.method == 'POST' else ListingListSerializer
@@ -78,9 +84,11 @@ class ListingDetailView(RetrieveUpdateDestroyAPIView):
         if user.is_authenticated:
             return queryset.annotate(
                 is_watching_flag=Exists(Watch.objects.filter(user=user, listing=OuterRef('pk'))),
+                has_my_bid=Exists(Bid.objects.filter(bidder=user, listing=OuterRef('pk'))),
             )
         return queryset.annotate(
             is_watching_flag=Value(False, output_field=BooleanField()),
+            has_my_bid=Value(False, output_field=BooleanField()),
         )
 
     def update(self, request, *args, **kwargs):
