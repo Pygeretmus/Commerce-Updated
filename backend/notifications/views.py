@@ -1,5 +1,5 @@
 from django.utils import timezone
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.generics import GenericAPIView, ListAPIView
 from rest_framework.response import Response
 
@@ -10,19 +10,17 @@ from .models import Notification
 from .serializers import MarkReadSerializer, NotificationSerializer, UnreadCountSerializer
 
 
-@extend_schema(parameters=[OpenApiParameter('unread', bool, description='Only unread notifications')])
 class NotificationListView(ListAPIView):
-    """The newest notifications of the current user."""
+    """The newest notifications of the current user. `?unread=true` keeps only the unread ones."""
 
     serializer_class = NotificationSerializer
     pagination_class = StandardPagination
+    filter_backends = (DjangoFilterBackend,)
     filterset_class = NotificationFilter
+    queryset = Notification.objects.none()  # only tells the schema generator which model this is
 
     def get_queryset(self):
-        queryset = Notification.objects.filter(recipient=self.request.user).select_related('listing')
-        if self.request.query_params.get('unread', '').lower() in ('1', 'true'):
-            queryset = queryset.filter(read_at__isnull=True)
-        return queryset
+        return Notification.objects.filter(recipient=self.request.user).select_related('listing')
 
 
 class NotificationUnreadCountView(GenericAPIView):
