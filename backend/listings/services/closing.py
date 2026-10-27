@@ -47,7 +47,7 @@ def _close(listing: Listing, now: datetime, *, sold: bool) -> None:
     listing.status = Listing.Status.ENDED
     listing.closed_at = now
     listing.sold = sold
-    listing.save(update_fields=['status', 'closed_at', 'sold', 'updated_at'])
+    listing.save(update_fields=['status', 'closed_at', 'sold', 'ends_at', 'updated_at'])
     _announce_end(listing)
 
 
@@ -77,8 +77,7 @@ def end_now(listing_id: int, now: datetime | None = None) -> Listing:
             raise ListingStateConflict('Only an active listing can be ended.', 'not_active')
         if listing.bids_count == 0:
             raise ListingStateConflict('There are no bids yet. Cancel the listing instead.', 'no_bids')
-        listing.ends_at = min(listing.ends_at, now)
-        listing.save(update_fields=['ends_at'])
+        listing.ends_at = min(listing.ends_at, now)  # saved together with the rest by _close()
         _close(listing, now, sold=True)
         return listing
 
