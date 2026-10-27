@@ -22,6 +22,18 @@ def money(value) -> str:
     return f'{value:.2f}'
 
 
+def bid_status(listing: Listing, user_id: int | None) -> str:
+    """
+    What a bid on this lot means for a bidder: winning/outbid while it runs, won/lost afterwards.
+    Needs `top_bid` loaded. ListingQuerySet.bid_on_by() computes the same thing in SQL for lists,
+    and a test keeps the two in step.
+    """
+    leading = listing.top_bid is not None and listing.top_bid.bidder_id == user_id
+    if listing.status == Listing.Status.ACTIVE:
+        return 'winning' if leading else 'outbid'
+    return 'won' if listing.sold and leading else 'lost'
+
+
 def state_of(listing: Listing, leader: str | None = None) -> dict:
     return {
         'current_price': money(listing.current_price),

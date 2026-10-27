@@ -11,7 +11,7 @@ from .constants import DURATIONS_DAYS, MIN_PRICE
 from .models import Bid, Category, Comment, Listing, ListingImage
 from .services.drafts import create_draft, update_draft
 from .services.masking import mask_name
-from .services.state import iso, leader_of
+from .services.state import bid_status, iso, leader_of, money
 
 
 class CategorySerializer(CustomModelSerializer):
@@ -87,14 +87,6 @@ class ListingImageSerializer(CustomModelSerializer):
         return self._absolute(obj.thumbnail) if obj.thumbnail else None
 
 
-def bid_status(listing: Listing, user_id: int | None) -> str:
-    """What a bid on this lot means for a bidder: winning/outbid while it runs, won/lost afterwards."""
-    leading = listing.top_bid is not None and listing.top_bid.bidder_id == user_id
-    if listing.status == Listing.Status.ACTIVE:
-        return 'winning' if leading else 'outbid'
-    return 'won' if listing.sold and leading else 'lost'
-
-
 class ListingDetailSerializer(CustomModelSerializer):
     """
     One lot. The queryset should select_related seller, category and top_bid__bidder, and may annotate
@@ -160,7 +152,7 @@ class ListingDetailSerializer(CustomModelSerializer):
         return obj.reserve_met if obj.reserve_price is not None else None
 
     def get_next_min_bid(self, obj: Listing) -> str:
-        return f'{obj.next_min_bid:.2f}'
+        return money(obj.next_min_bid)
 
     def get_leader(self, obj: Listing) -> str | None:
         return leader_of(obj)
