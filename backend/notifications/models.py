@@ -4,6 +4,8 @@ from django.conf import settings
 from django.db import models
 from django.db.models import F, Q
 
+from .managers import NotificationManager
+
 
 class Notification(models.Model):
     class Kind(models.TextChoices):
@@ -23,6 +25,7 @@ class Notification(models.Model):
     data = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     read_at = models.DateTimeField(null=True, blank=True)
+    objects = NotificationManager()
 
     class Meta:
         ordering = ('-created_at', '-id')

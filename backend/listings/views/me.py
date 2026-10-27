@@ -65,7 +65,7 @@ class MySummaryView(GenericAPIView):
                     'bids': bids,
                     'listings': listings,
                     'watching': Watch.objects.filter(user=user).count(),
-                    'unread_notifications': Notification.objects.filter(recipient=user, read_at__isnull=True).count(),
+                    'unread_notifications': Notification.objects.unread_for(user).count(),
                 }
             ).data
         )
