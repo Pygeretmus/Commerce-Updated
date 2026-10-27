@@ -19,6 +19,7 @@ def post_comment(listing: Listing, author, body: str) -> Comment:
         asked = (
             Comment.objects.filter(listing=listing, deleted_at__isnull=True)
             .exclude(author=author)
+            .order_by()  # the default ordering would be part of DISTINCT and make every comment unique
             .values_list('author_id', flat=True)
             .distinct()[:MAX_THREAD_NOTIFICATIONS]
         )

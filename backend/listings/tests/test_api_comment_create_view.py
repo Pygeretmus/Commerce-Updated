@@ -114,6 +114,22 @@ class APICommentCreateViewTest(APITestCase):
         # === Assert === (one notification per person, none for the seller)
         self.assertCountEqual(Notification.objects.values_list('recipient', flat=True), [self.alice.pk, bob.pk])
 
+    def test_it_counts_askers_not_comments_when_the_thread_is_long(self):
+        # === Arrange === (three comments of one person must not use up the places of the others)
+        bob, carol = G(User), G(User)
+        for author in (self.alice, self.alice, self.alice, bob, carol):
+            Comment.objects.create(listing=self.listing, author=author, body='Q')
+        self.client.force_authenticate(self.seller)
+
+        # === Act ===
+        with mock.patch('listings.services.discussion.MAX_THREAD_NOTIFICATIONS', 3):
+            self.client.post(self.url, {'body': 'Answer'})
+
+        # === Assert ===
+        self.assertCountEqual(
+            Notification.objects.values_list('recipient', flat=True), [self.alice.pk, bob.pk, carol.pk]
+        )
+
     def test_it_throttles_comments(self):
         # === Arrange ===
         self.client.force_authenticate(self.alice)
