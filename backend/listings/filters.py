@@ -24,8 +24,9 @@ ORDERINGS = {
 class ListingFilter(FilterSet):
     """The query string of the lot list: `?q=vase&category=art&min_price=10&ordering=ending_soon`."""
 
-    # Drafts and cancelled lots are never public, so they are not valid values here.
-    # Without `status` the list shows active lots, or every status when `watching`/`bidding` is set.
+    # Only active and ended lots can be asked for: drafts are private, and cancelled lots are not catalogued
+    # (they stay reachable by link and in `watching`/`bidding`).
+    # Without `status` the list shows active lots, or every status but drafts when `watching`/`bidding` is set.
     status = ChoiceFilter(
         choices=[(Listing.Status.ACTIVE.value, 'active'), (Listing.Status.ENDED.value, 'ended')],
         empty_label=None,

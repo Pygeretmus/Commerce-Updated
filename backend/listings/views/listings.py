@@ -67,11 +67,7 @@ class ListingDetailView(RetrieveUpdateDestroyAPIView):
 
     http_method_names = ('get', 'patch', 'delete', 'head', 'options')
     throttle_scope = 'listing_write'
-
-    def get_permissions(self):
-        if self.request.method in SAFE_METHODS:
-            return [AllowAny()]
-        return [IsAuthenticated(), IsListingSeller()]
+    permission_classes = (IsAuthenticatedOrReadOnly, IsListingSeller)
 
     def get_serializer_class(self):
         return ListingDetailSerializer if self.request.method in SAFE_METHODS else ListingWriteSerializer
@@ -104,18 +100,27 @@ class ListingDetailView(RetrieveUpdateDestroyAPIView):
         delete_draft(instance)
 
 
-class DraftListingMixin:
+class ListingSellerMixin:
     """
-    Finds the listing a photo endpoint works on. The order of the answers matters:
-    404 (a draft of somebody else), 403 (somebody else's lot), 409 (not a draft any more).
+    Finds the listing a seller's action works on. The order of the answers matters:
+    404 (a draft of somebody else), then 403 (somebody else's lot). The state is checked by the action.
     """
 
     permission_classes = (IsAuthenticated, IsListingSeller)
-    not_draft_message: str | None = None
 
     def get_listing(self) -> Listing:
         listing = get_object_or_404(Listing.objects.visible_to(self.request.user), pk=self.kwargs['pk'])
         self.check_object_permissions(self.request, listing)
+        return listing
+
+
+class DraftListingMixin(ListingSellerMixin):
+    """The same, and 409 when the listing is not a draft any more (photos, publishing)."""
+
+    not_draft_message: str | None = None
+
+    def get_listing(self) -> Listing:
+        listing = super().get_listing()
         require_draft(listing, self.not_draft_message)
         return listing
 
@@ -189,34 +194,33 @@ class ListingPublishView(DraftListingMixin, GenericAPIView):
         return Response(ListingDetailSerializer(listing, context=self.get_serializer_context()).data)
 
 
-@extend_schema(request=None, responses={200: ListingDetailSerializer})
-class ListingCancelView(DraftListingMixin, GenericAPIView):
-    """Withdraws an active lot. Only possible while nobody has bid."""
+class ListingTransitionView(ListingSellerMixin, GenericAPIView):
+    """The seller's one-click state changes: runs `transition` and answers with the lot as it is afterwards."""
 
     serializer_class = ListingDetailSerializer
     throttle_scope = 'listing_write'
 
-    def get_listing(self) -> Listing:
-        # 404 (somebody else's draft) -> 403 (not the seller); the state is checked by the service
-        listing = get_object_or_404(Listing.objects.visible_to(self.request.user), pk=self.kwargs['pk'])
-        self.check_object_permissions(self.request, listing)
-        return listing
+    def transition(self, listing_id: int) -> None:
+        raise NotImplementedError
 
     def post(self, request, *args, **kwargs):
         listing = self.get_listing()
-        cancel(listing.pk)
-        return Response(self._detail(listing.pk))
-
-    def _detail(self, pk: int) -> dict:
-        listing = Listing.objects.select_related('seller', 'category', 'top_bid__bidder').with_images().get(pk=pk)
-        return ListingDetailSerializer(listing, context=self.get_serializer_context()).data
+        self.transition(listing.pk)
+        fresh = Listing.objects.select_related('seller', 'category', 'top_bid__bidder').with_images().get(pk=listing.pk)
+        return Response(self.get_serializer(fresh).data)
 
 
 @extend_schema(request=None, responses={200: ListingDetailSerializer})
-class ListingEndNowView(ListingCancelView):
+class ListingCancelView(ListingTransitionView):
+    """Withdraws an active lot. Only possible while nobody has bid."""
+
+    def transition(self, listing_id: int) -> None:
+        cancel(listing_id)
+
+
+@extend_schema(request=None, responses={200: ListingDetailSerializer})
+class ListingEndNowView(ListingTransitionView):
     """The seller accepts the current top bid and ends the auction at once. Needs at least one bid."""
 
-    def post(self, request, *args, **kwargs):
-        listing = self.get_listing()
-        end_now(listing.pk)
-        return Response(self._detail(listing.pk))
+    def transition(self, listing_id: int) -> None:
+        end_now(listing_id)

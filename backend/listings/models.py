@@ -84,7 +84,7 @@ class Listing(models.Model):
             ),
         ]
         indexes: ClassVar[list[models.Index]] = [
-            # What the closer task scans every minute
+            # What the closer task scans every 30 seconds
             models.Index(fields=['ends_at'], condition=Q(status='active'), name='listing_active_ends_at_idx'),
             models.Index(F('status'), F('published_at').desc(), name='listing_status_published_idx'),
         ]
