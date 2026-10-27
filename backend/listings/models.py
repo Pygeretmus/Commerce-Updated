@@ -51,6 +51,8 @@ class Listing(models.Model):
     # The result of a closed auction: true when the top bidder won, false when it ended without
     # a winner (no bids, reserve not met, cancelled). null while the auction is not closed.
     sold = models.BooleanField(null=True, blank=True, editable=False)
+    # Set once the "ending soon" notifications went out, so the beat task never repeats them
+    ending_soon_notified_at = models.DateTimeField(null=True, blank=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     objects = ListingManager()
@@ -113,6 +115,13 @@ class Listing(models.Model):
         if self.status != self.Status.ACTIVE:
             return self.status != self.Status.DRAFT
         return self.ends_at is not None and self.ends_at <= (now or timezone.now())
+
+    def bidder_ids(self) -> set[int]:
+        """Users who placed a bid (bids of deleted accounts are skipped)."""
+        return set(Bid.objects.filter(listing=self, bidder__isnull=False).values_list('bidder_id', flat=True))
+
+    def watcher_ids(self) -> set[int]:
+        return set(Watch.objects.filter(listing=self).values_list('user_id', flat=True))
 
 
 def listing_image_path(instance: 'ListingImage', filename: str) -> str:

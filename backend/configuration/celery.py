@@ -15,4 +15,8 @@ app.conf.beat_schedule = {
         'task': 'listings.tasks.close_expired_listings',
         'schedule': 30,
     },
+    'notify-ending-soon-every-5-minutes': {
+        'task': 'notifications.tasks.notify_ending_soon',
+        'schedule': 300,
+    },
 }

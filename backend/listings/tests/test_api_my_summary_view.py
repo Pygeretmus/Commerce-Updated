@@ -42,6 +42,7 @@ class APIMySummaryViewTest(APITestCase):
                 'bids': {'winning': 0, 'outbid': 0, 'won': 0, 'lost': 0},
                 'listings': {'draft': 0, 'active': 0, 'ended': 0, 'cancelled': 0},
                 'watching': 0,
+                'unread_notifications': 0,
             },
         )
 
@@ -62,4 +63,4 @@ class APIMySummaryViewTest(APITestCase):
         # === Assert ===
         self.assertEqual(data['listings'], {'draft': 1, 'active': 1, 'ended': 0, 'cancelled': 0})
         self.assertEqual(data['bids'], {'winning': 0, 'outbid': 1, 'won': 0, 'lost': 0})
-        self.assertEqual(data['watching'], 1)
+        self.assertEqual((data['watching'], data['unread_notifications']), (1, 1))

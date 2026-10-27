@@ -6,6 +6,9 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import APIException
 
+from notifications.models import Notification
+from notifications.services import notify
+
 from ..constants import CENT, MAX_BID, SNIPING_WINDOW
 from ..models import Bid, Listing
 
@@ -55,6 +58,7 @@ def place_bid(listing_id: int, bidder: User, amount: Decimal, *, now: datetime |
             raise BidRejected(f'Your bid is too low. The minimum is {minimum}.', 'bid_too_low', min_bid=minimum)
 
         # 4. Record it and move the listing to the new state
+        outbid_user_id = listing.top_bid.bidder_id if listing.top_bid is not None else None
         bid = Bid.objects.create(listing=listing, bidder=bidder, amount=amount)
         listing.current_price = amount
         listing.bids_count += 1
@@ -63,4 +67,6 @@ def place_bid(listing_id: int, bidder: User, amount: Decimal, *, now: datetime |
             listing.ends_at = now + SNIPING_WINDOW
         listing.save(update_fields=['current_price', 'bids_count', 'top_bid', 'ends_at', 'updated_at'])
 
+        # 5. Tell people. The notification rows belong to this transaction, the pushes wait for the commit.
+        notify([outbid_user_id], Notification.Kind.OUTBID, listing, amount=amount)
         return bid

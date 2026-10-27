@@ -1,15 +1,15 @@
 """How an auction ends: by the clock (a Celery task), by the seller ("end now") or by cancelling."""
 
-import logging
 from datetime import datetime
 
 from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import APIException
 
-from ..models import Listing
+from notifications.models import Notification
+from notifications.services import notify
 
-logger = logging.getLogger(__name__)
+from ..models import Listing
 
 
 class ListingStateConflict(APIException):
@@ -24,11 +24,28 @@ def _lock(listing_id: int) -> Listing | None:
     return Listing.objects.select_for_update(of=('self',)).select_related('top_bid').filter(pk=listing_id).first()
 
 
+def _announce_end(listing: Listing) -> None:
+    """Notifications for everybody who cares, one kind each, then the push to the lot's page."""
+    seller = listing.seller_id
+    bidders = listing.bidder_ids()
+    watchers = listing.watcher_ids() - bidders - {seller}
+    amount = listing.current_price
+    if listing.sold:
+        winner = listing.top_bid.bidder_id
+        notify([winner], Notification.Kind.WON, listing, amount=amount)
+        notify([seller], Notification.Kind.SOLD, listing, amount=amount)
+        notify(bidders - {winner}, Notification.Kind.LOST, listing)
+        notify(watchers - {winner}, Notification.Kind.LISTING_ENDED, listing, sold=True)
+    else:
+        notify({seller} | bidders | watchers, Notification.Kind.LISTING_ENDED, listing, sold=False)
+
+
 def _close(listing: Listing, now: datetime, sold: bool) -> None:
     listing.status = Listing.Status.ENDED
     listing.closed_at = now
     listing.sold = sold
     listing.save(update_fields=['status', 'closed_at', 'sold', 'updated_at'])
+    _announce_end(listing)
 
 
 def close_expired(listing_id: int, now: datetime | None = None) -> bool:
@@ -76,4 +93,5 @@ def cancel(listing_id: int, now: datetime | None = None) -> Listing:
         listing.closed_at = now
         listing.sold = False
         listing.save(update_fields=['status', 'closed_at', 'sold', 'updated_at'])
+        notify(listing.watcher_ids() - {listing.seller_id}, Notification.Kind.CANCELLED, listing)
         return listing

@@ -350,3 +350,4 @@ class MeSummarySerializer(serializers.Serializer):
     bids = BidCountsSerializer()
     listings = ListingCountsSerializer()
     watching = serializers.IntegerField()
+    unread_notifications = serializers.IntegerField()

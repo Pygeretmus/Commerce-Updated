@@ -6,6 +6,7 @@ from rest_framework.generics import GenericAPIView, ListAPIView
 from rest_framework.response import Response
 
 from configuration.pagination import StandardPagination
+from notifications.models import Notification
 
 from ..constants import BID_STATUSES
 from ..filters import MyBidFilter, MyListingFilter
@@ -64,6 +65,7 @@ class MySummaryView(GenericAPIView):
                     'bids': bids,
                     'listings': listings,
                     'watching': Watch.objects.filter(user=user).count(),
+                    'unread_notifications': Notification.objects.filter(recipient=user, read_at__isnull=True).count(),
                 }
             ).data
         )

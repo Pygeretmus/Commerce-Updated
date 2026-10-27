@@ -8,6 +8,8 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework.throttling import ScopedRateThrottle
 
+from notifications.models import Notification
+
 from ..models import Comment, Listing
 from .helpers import make_active_listing, make_listing
 
@@ -83,6 +85,34 @@ class APICommentCreateViewTest(APITestCase):
 
         # === Assert ===
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_it_notifies_the_seller_about_a_question(self):
+        # === Arrange ===
+        self.client.force_authenticate(self.alice)
+
+        # === Act ===
+        self.client.post(self.url, {'body': 'Is it signed?'})
+
+        # === Assert ===
+        note = Notification.objects.get()
+        self.assertEqual(
+            (note.recipient, note.kind, note.listing, note.data),
+            (self.seller, 'new_comment', self.listing, {'author': 'alice'}),
+        )
+
+    def test_it_notifies_askers_about_the_answer_but_not_the_seller_herself(self):
+        # === Arrange ===
+        bob = G(User)
+        Comment.objects.create(listing=self.listing, author=self.alice, body='Q1')
+        Comment.objects.create(listing=self.listing, author=self.alice, body='Q1 again')
+        Comment.objects.create(listing=self.listing, author=bob, body='Q2')
+        self.client.force_authenticate(self.seller)
+
+        # === Act ===
+        self.client.post(self.url, {'body': 'Answer'})
+
+        # === Assert === (one notification per person, none for the seller)
+        self.assertCountEqual(Notification.objects.values_list('recipient', flat=True), [self.alice.pk, bob.pk])
 
     def test_it_throttles_comments(self):
         # === Arrange ===

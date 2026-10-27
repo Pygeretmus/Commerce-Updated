@@ -1,6 +1,11 @@
 from collections.abc import Iterable
+from datetime import datetime
 from decimal import Decimal
 
+from django.db import transaction
+from django.utils import timezone
+
+from .constants import ENDING_SOON_WINDOW
 from .models import Notification
 
 
@@ -39,3 +44,25 @@ def notify(recipients: Iterable[int | None], kind: str, listing, **data) -> list
         [Notification(recipient_id=pk, kind=kind, listing=listing, data=clean) for pk in sorted(ids)]
     )
     return created
+
+
+@transaction.atomic
+def notify_listing_ending_soon(listing_id: int, now: datetime | None = None) -> int:
+    """Tells watchers and bidders that a lot ends within the hour, once. Returns how many were notified."""
+    from listings.models import Listing
+
+    now = now or timezone.now()
+    listing = Listing.objects.select_for_update().filter(pk=listing_id).first()
+    if (
+        listing is None
+        or listing.status != Listing.Status.ACTIVE
+        or listing.ending_soon_notified_at is not None
+        or listing.ends_at is None
+        or not (now < listing.ends_at <= now + ENDING_SOON_WINDOW)
+    ):
+        return 0
+    listing.ending_soon_notified_at = now
+    listing.save(update_fields=['ending_soon_notified_at', 'updated_at'])
+
+    people = (listing.watcher_ids() | listing.bidder_ids()) - {listing.seller_id}
+    return len(notify(people, Notification.Kind.ENDING_SOON, listing))

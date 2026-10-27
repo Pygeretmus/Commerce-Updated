@@ -48,6 +48,7 @@ class APIListingPublishViewTest(APITestCase):
         self.assertEqual(self.listing.status, 'active')
         self.assertEqual(self.listing.published_at, NOW)
         self.assertEqual(self.listing.ends_at, NOW + timedelta(days=7))
+        self.assertIsNone(self.listing.closed_at)
 
     def test_it_returns_detail_of_the_published_listing(self):
         # === Act ===
