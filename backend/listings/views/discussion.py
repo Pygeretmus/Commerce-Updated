@@ -61,6 +61,7 @@ class CommentDestroyView(GenericAPIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@extend_schema(request=None, responses={204: None})
 class WatchView(GenericAPIView):
     """Adds a lot to my watchlist (PUT) or removes it (DELETE). Both are idempotent."""
 
@@ -68,7 +69,7 @@ class WatchView(GenericAPIView):
 
     def put(self, request, *args, **kwargs):
         watch(public_listing(kwargs['pk']), request.user)
-        return Response(status=status.HTTP_200_OK)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     def delete(self, request, *args, **kwargs):
         unwatch(public_listing(kwargs['pk']), request.user)

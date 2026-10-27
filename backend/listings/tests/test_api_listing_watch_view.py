@@ -28,7 +28,7 @@ class APIListingWatchViewTest(APITestCase):
         response = self.client.put(self.url)
 
         # === Assert ===
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertTrue(Watch.objects.filter(user=self.alice, listing=self.listing).exists())
 
     def test_it_is_idempotent(self):
@@ -40,7 +40,7 @@ class APIListingWatchViewTest(APITestCase):
         response = self.client.put(self.url)
 
         # === Assert ===
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(Watch.objects.count(), 1)
 
     def test_it_removes_the_listing_and_removing_twice_is_fine(self):
