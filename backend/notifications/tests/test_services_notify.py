@@ -6,8 +6,9 @@ from django.test import TestCase
 from django_dynamic_fixture import G
 
 from listings.tests.helpers import make_active_listing
-from notifications.models import Notification
-from notifications.services import notify
+
+from ..models import Notification
+from ..services import notify
 
 User = get_user_model()
 

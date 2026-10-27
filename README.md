@@ -98,6 +98,9 @@ Base path `/api`. All endpoints except registration and login need `Authorizatio
 | `GET`                  | `/me/bids/`                     | Bids personal dashboard                                      |
 | `GET`                  | `/me/listings/`                 | Listings personal dashboard                                  |
 | `GET`                  | `/me/summary/`                  | Counters for navigation                                      |
+| `GET`                  | `/notifications/`               | List of all notifications                                    |
+| `GET`                  | `/notifications/unread_count/`  | Unread notifications counter                                 |
+| `POST`                 | `/notifications/read/`          | Mark chosen notifications as read                            |
 
 ## Development
 

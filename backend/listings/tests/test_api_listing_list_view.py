@@ -1,7 +1,6 @@
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
-from django.core.cache import cache
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
@@ -23,7 +22,7 @@ class APIListingListViewTest(APITestCase):
         cls.seller = G(User, username='seller')
 
     def setUp(self):
-        cache.clear()
+
         self.url = reverse('listings:listing-list')
 
     def test_it_returns_listing_data_to_anonymous_user(self):

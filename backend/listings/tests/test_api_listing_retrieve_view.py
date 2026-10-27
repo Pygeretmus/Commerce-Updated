@@ -1,5 +1,4 @@
 from django.contrib.auth import get_user_model
-from django.core.cache import cache
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
@@ -18,9 +17,6 @@ class APIListingRetrieveViewTest(APITestCase):
     def setUpTestData(cls):
         cls.seller = G(User, username='seller')
         cls.other = G(User)
-
-    def setUp(self):
-        cache.clear()
 
     def url(self, listing: Listing) -> str:
         return reverse('listings:listing-detail', args=[listing.pk])
