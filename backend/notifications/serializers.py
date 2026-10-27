@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from . import services
+from .services.texts import render_text
 
 
 class NotificationSerializer(serializers.Serializer):
@@ -13,7 +13,7 @@ class NotificationSerializer(serializers.Serializer):
     read_at = serializers.DateTimeField(allow_null=True)
 
     def get_text(self, obj) -> str:
-        return services.render_text(obj.kind, obj.listing.title, obj.data)
+        return render_text(obj.kind, obj.listing.title, obj.data)
 
     def get_listing(self, obj) -> dict:
         return {'id': obj.listing_id, 'title': obj.listing.title}
@@ -28,7 +28,12 @@ class MarkReadSerializer(serializers.Serializer):
     all = serializers.BooleanField(required=False, default=False, write_only=True)
     updated = serializers.IntegerField(read_only=True)
 
-    def validate(self, attrs: dict) -> dict:
+    def validate(self, attrs: dict) -> dict | None:
         if not attrs.get('all') and not attrs.get('ids'):
             raise serializers.ValidationError('Pass "ids" or "all": true.', code='nothing_to_mark')
         return attrs
+
+
+class WebSocketTicketSerializer(serializers.Serializer):
+    ticket = serializers.CharField()
+    expires_in = serializers.IntegerField(help_text='Seconds the ticket stays valid.')

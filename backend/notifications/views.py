@@ -1,13 +1,17 @@
+from django.conf import settings
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema
 from rest_framework.generics import GenericAPIView, ListAPIView
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from configuration.pagination import StandardPagination
 
 from .filters import NotificationFilter
 from .models import Notification
-from .serializers import MarkReadSerializer, NotificationSerializer, UnreadCountSerializer
+from .serializers import MarkReadSerializer, NotificationSerializer, UnreadCountSerializer, WebSocketTicketSerializer
+from .services.tickets import issue_ticket
 
 
 class NotificationListView(ListAPIView):
@@ -43,3 +47,16 @@ class NotificationMarkReadView(GenericAPIView):
         if not serializer.validated_data['all']:
             unread = unread.filter(pk__in=serializer.validated_data['ids'])
         return Response(self.get_serializer({'updated': unread.update(read_at=timezone.now())}).data)
+
+
+class WebSocketTicketView(GenericAPIView):
+    """A one-use ticket for `/ws/me/?ticket=...` (valid for 30 seconds)."""
+
+    permission_classes = (IsAuthenticated,)
+    serializer_class = WebSocketTicketSerializer
+    throttle_scope = 'ws_ticket'
+
+    @extend_schema(request=None)
+    def post(self, request, *args, **kwargs):
+        ticket = {'ticket': issue_ticket(request.user.pk), 'expires_in': settings.TICKET_TTL}
+        return Response(self.get_serializer(ticket).data)

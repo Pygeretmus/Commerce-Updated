@@ -134,6 +134,7 @@ REST_FRAMEWORK = {
         'image_upload': '120/hour',
         'bid': '20/min',
         'comment': '30/min',
+        'ws_ticket': '30/min',
     },
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'EXCEPTION_HANDLER': 'configuration.exceptions.exception_handler',
@@ -180,3 +181,5 @@ CHANNEL_LAYERS = {
         },
     },
 }
+
+TICKET_TTL = 30

@@ -10,7 +10,7 @@ from listings.models import Listing, Watch
 from listings.tests.helpers import bid_on, make_active_listing
 
 from ..models import Notification
-from ..services import notify_listing_ending_soon
+from ..services.notify import notify_listing_ending_soon
 from ..tasks import notify_ending_soon
 
 User = get_user_model()

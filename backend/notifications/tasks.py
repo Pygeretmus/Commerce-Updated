@@ -4,7 +4,7 @@ from celery import shared_task
 from django.utils import timezone
 
 from .constants import ENDING_SOON_WINDOW
-from .services import notify_listing_ending_soon
+from .services.notify import notify_listing_ending_soon
 
 logger = logging.getLogger(__name__)
 

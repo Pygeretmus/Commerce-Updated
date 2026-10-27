@@ -7,8 +7,8 @@ from django.utils import timezone
 from rest_framework.exceptions import APIException
 
 from notifications.models import Notification
-from notifications.realtime import push_to_listing
-from notifications.services import notify
+from notifications.services.notify import notify
+from notifications.services.realtime import push_to_listing
 
 from ..models import Listing
 from .state import listing_ended_event

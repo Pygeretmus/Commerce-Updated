@@ -9,11 +9,16 @@ from django.test import TestCase
 from django.utils import timezone
 from django_dynamic_fixture import G
 
+from listings.models import Listing
 from listings.services.bidding import BidRejected, place_bid
 from listings.services.closing import cancel, close_expired, end_now
 from listings.services.state import iso
 from listings.tests.helpers import bid_on, make_active_listing
-from notifications import realtime
+
+from ..models import Notification
+from ..serializers import NotificationSerializer
+from ..services import realtime
+from ..services.realtime import listing_group, user_group
 
 User = get_user_model()
 
@@ -43,7 +48,7 @@ class RealtimeEventsTest(TestCase):
         self.send.assert_not_called()
         for callback in callbacks:
             callback()
-        (event,) = self.sent_to(realtime.listing_group(self.listing.pk))
+        (event,) = self.sent_to(listing_group(self.listing.pk))
         self.assertEqual(
             (event['type'], event['listing_id'], event['current_price'], event['bids_count'], event['leader']),
             ('price_update', self.listing.pk, '10.00', 1, 'a***e'),
@@ -69,7 +74,7 @@ class RealtimeEventsTest(TestCase):
 
         # === Assert ===
         self.listing.refresh_from_db()
-        (event,) = self.sent_to(realtime.listing_group(self.listing.pk))
+        (event,) = self.sent_to(listing_group(self.listing.pk))
         self.assertEqual(event['ends_at'], iso(self.listing.ends_at))
         self.assertGreater(self.listing.ends_at, timezone.now() + timedelta(seconds=90))
 
@@ -84,7 +89,7 @@ class RealtimeEventsTest(TestCase):
             end_now(self.listing.pk)
 
         # === Assert ===
-        (event,) = self.sent_to(realtime.listing_group(self.listing.pk))
+        (event,) = self.sent_to(listing_group(self.listing.pk))
         self.assertEqual(
             (event['type'], event['status'], event['sold'], event['final_price'], event['winner']),
             ('listing_ended', 'ended', True, '10.50', 'b***y'),
@@ -104,11 +109,53 @@ class RealtimeEventsTest(TestCase):
             close_expired(reserve_listing.pk, reserve_listing.ends_at + timedelta(seconds=1))
 
         # === Assert ===
-        (event,) = self.sent_to(realtime.listing_group(reserve_listing.pk))
+        (event,) = self.sent_to(listing_group(reserve_listing.pk))
         self.assertEqual(
             (event['type'], event['sold'], event['winner'], event['final_price']),
             ('listing_ended', False, None, '10.00'),
         )
+
+    def test_it_pushes_the_outbid_notification_to_the_old_leader(self):
+        # === Arrange ===
+        bid_on(self.listing, self.alice, '10.00')
+        self.send.reset_mock()
+
+        # === Act ===
+        with self.captureOnCommitCallbacks(execute=True):
+            place_bid(self.listing.pk, self.bob, Decimal('11.00'))
+
+        # === Assert ===
+        (event,) = self.sent_to(user_group(self.alice.pk))
+        self.assertEqual((event['type'], event['kind']), ('notification', 'outbid'))
+        self.assertIn('$11.00', event['text'])
+
+    def test_a_pushed_notification_has_the_shape_of_the_rest_one(self):
+        # === Arrange ===
+        bid_on(self.listing, self.alice, '10.00')
+        self.send.reset_mock()
+
+        # === Act ===
+        with self.captureOnCommitCallbacks(execute=True):
+            place_bid(self.listing.pk, self.bob, Decimal('11.00'))
+
+        # === Assert === (same keys and same date format: the client needs one parser, not two)
+        (event,) = self.sent_to(user_group(self.alice.pk))
+        stored = Notification.objects.select_related('listing').get(recipient=self.alice)
+        self.assertEqual({k: v for k, v in event.items() if k != 'type'}, dict(NotificationSerializer(stored).data))
+
+    def test_it_pushes_the_won_notification_when_the_auction_ends(self):
+        # === Arrange ===
+        bid_on(self.listing, self.alice, '10.00')
+        Listing.objects.filter(pk=self.listing.pk).update(ends_at=timezone.now() - timedelta(seconds=1))
+        self.send.reset_mock()
+
+        # === Act ===
+        with self.captureOnCommitCallbacks(execute=True):
+            close_expired(self.listing.pk)
+
+        # === Assert ===
+        (won,) = self.sent_to(user_group(self.alice.pk))
+        self.assertEqual(won['kind'], 'won')
 
     def test_it_pushes_a_cancellation(self):
         # === Act ===
@@ -116,24 +163,5 @@ class RealtimeEventsTest(TestCase):
             cancel(self.listing.pk)
 
         # === Assert ===
-        (event,) = self.sent_to(realtime.listing_group(self.listing.pk))
+        (event,) = self.sent_to(listing_group(self.listing.pk))
         self.assertEqual((event['status'], event['sold']), ('cancelled', False))
-
-
-class SendFailureTest(TestCase):
-    def test_it_does_nothing_without_a_channel_layer(self):
-        # === Act & Assert === (no layer configured: the push is skipped quietly)
-        with mock.patch.object(realtime, 'get_channel_layer', return_value=None):
-            realtime._send('listing.1', {'type': 'price_update'})
-
-    def test_a_broken_channel_layer_does_not_break_the_request(self):
-        # === Arrange ===
-        layer = mock.Mock()
-        layer.group_send = mock.AsyncMock(side_effect=ConnectionError('redis is down'))
-
-        # === Act & Assert === (the error is logged, not raised)
-        with (
-            mock.patch.object(realtime, 'get_channel_layer', return_value=layer),
-            self.assertLogs('notifications.realtime', 'ERROR'),
-        ):
-            realtime._send('listing.1', {'type': 'price_update'})

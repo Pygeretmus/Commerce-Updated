@@ -248,7 +248,7 @@ class ListingStateSerializer(serializers.Serializer):
     server_time = serializers.DateTimeField()
 
 
-class BidSerializer(serializers.ModelSerializer):
+class BidSerializer(CustomModelSerializer):
     """A bid in the public history: other people appear masked, my own bids carry my real name."""
 
     bidder = serializers.SerializerMethodField()
@@ -285,7 +285,7 @@ class CommentCreateSerializer(serializers.Serializer):
     body = serializers.CharField(max_length=1000, trim_whitespace=True)
 
 
-class CommentSerializer(serializers.ModelSerializer):
+class CommentSerializer(CustomModelSerializer):
     author = serializers.SlugRelatedField(slug_field='username', read_only=True)
     is_seller = serializers.SerializerMethodField()
     is_mine = serializers.SerializerMethodField()

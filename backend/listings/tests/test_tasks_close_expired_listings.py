@@ -6,8 +6,7 @@ from django.test import TestCase
 from django.utils import timezone
 from django_dynamic_fixture import G
 
-from listings import tasks
-
+from .. import tasks
 from ..models import Listing
 from ..tasks import close_expired_listings
 from .helpers import make_active_listing, make_listing

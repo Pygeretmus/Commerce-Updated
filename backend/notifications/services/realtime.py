@@ -18,6 +18,10 @@ def listing_group(listing_id: int) -> str:
     return f'listing.{listing_id}'
 
 
+def user_group(user_id: int) -> str:
+    return f'user.{user_id}'
+
+
 def _send(group: str, payload: dict) -> None:
     layer = get_channel_layer()
     if layer is None:
@@ -35,3 +39,7 @@ def push(group: str, payload: dict) -> None:
 
 def push_to_listing(listing_id: int, payload: dict) -> None:
     push(listing_group(listing_id), payload)
+
+
+def push_to_user(user_id: int, payload: dict) -> None:
+    push(user_group(user_id), payload)

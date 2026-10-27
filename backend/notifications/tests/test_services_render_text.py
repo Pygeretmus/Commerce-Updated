@@ -1,7 +1,7 @@
 from django.test import TestCase
 
 from ..models import Notification
-from ..services import render_text
+from ..services.texts import render_text
 
 
 class RenderTextTest(TestCase):

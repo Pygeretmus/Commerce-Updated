@@ -6,7 +6,7 @@ from rest_framework.exceptions import PermissionDenied
 
 from notifications.constants import MAX_THREAD_NOTIFICATIONS
 from notifications.models import Notification
-from notifications.services import notify
+from notifications.services.notify import notify
 
 from ..models import Comment, Listing, Watch
 

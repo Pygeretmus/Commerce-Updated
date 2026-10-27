@@ -8,7 +8,7 @@ from django_dynamic_fixture import G
 from listings.tests.helpers import make_active_listing
 
 from ..models import Notification
-from ..services import notify
+from ..services.notify import notify
 
 User = get_user_model()
 

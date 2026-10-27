@@ -1,7 +1,11 @@
+from urllib.parse import parse_qs
+
+from asgiref.sync import sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from django.utils import timezone
 
-from .realtime import listing_group
+from .realtime import listing_group, user_group
+from .tickets import consume_ticket
 
 # Close codes in the private range (4000-4999)
 CLOSE_UNAUTHORIZED = 4401
@@ -51,3 +55,16 @@ class ListingConsumer(PushConsumer):
             await self.refuse(CLOSE_NOT_FOUND)
             return
         await self.join(listing_group(listing_id))
+
+
+class UserConsumer(PushConsumer):
+    """Personal events (notifications): `/ws/me/?ticket=...`."""
+
+    async def connect(self):
+        query = parse_qs(self.scope['query_string'].decode())
+        ticket = query.get('ticket', [''])[0]
+        user_id = await sync_to_async(consume_ticket)(ticket)  # a cache call, not a database one
+        if user_id is None:
+            await self.refuse(CLOSE_UNAUTHORIZED)
+            return
+        await self.join(user_group(user_id))
