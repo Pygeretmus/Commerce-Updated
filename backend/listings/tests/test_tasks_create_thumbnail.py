@@ -125,8 +125,10 @@ class CreateThumbnailTaskTest(TestCase):
         photo = ListingImage.objects.create(listing=self.listing, image='listings/missing.jpg')
 
         # === Act ===
-        create_thumbnail(photo.pk)
+        with self.assertLogs('listings.tasks', 'WARNING') as logs:
+            create_thumbnail(photo.pk)
 
         # === Assert ===
         photo.refresh_from_db()
         self.assertFalse(photo.thumbnail)
+        self.assertIn(f'Photo {photo.pk} has no file', logs.output[0])

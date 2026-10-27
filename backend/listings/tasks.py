@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from .models import Listing, ListingImage
 from .services.closing import close_expired
+from .services.thumbnails import make_thumbnail
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +24,6 @@ def create_thumbnail(image_id: int) -> None:
             return  # the photo was deleted in the meantime, or the work is already done
         try:
             with photo.image.open('rb') as original:
-                from .services.drafts import make_thumbnail
-
                 thumbnail = make_thumbnail(original)
         except FileNotFoundError:
             logger.warning('Photo %s has no file in the storage, thumbnail skipped', image_id)
