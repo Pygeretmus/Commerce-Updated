@@ -15,15 +15,19 @@ dependencies = [
     "celery[redis]>=5.6.3",                     # distributed task queue with Redis broker support
     "pillow>=13.0.0",                           # imaging library
     "django-filter>=26.2",                      # filters library
+    "channels>=4.3.2",                          # event-driven capabilities for Django
+    "channels-redis>=4.3.0",                    # ASGI channel layer implementation using Redis
 ]
 
 [dependency-groups]
 dev = [
     "ruff>=0.12.4",                             # linter and formatter
     "django-dynamic-fixture>=4.0.1",            # for fixture generation in tests
+    "daphne>=4.2.3",                            # ASGI server for local development (HTTP + WebSocket)
 ]
 prod = [
     "gunicorn>=23.0.0",                         # WSGI server for production
+    "uvicorn[standard]>=0.54.0",                # ASGI server for production
 ]
 
 [tool.ruff]

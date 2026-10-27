@@ -7,10 +7,13 @@ from django.utils import timezone
 from rest_framework.exceptions import APIException
 
 from notifications.models import Notification
+from notifications.realtime import push_to_listing
 from notifications.services import notify
 
 from ..constants import CENT, MAX_BID, SNIPING_WINDOW
 from ..models import Bid, Listing
+from .masking import mask_name
+from .state import price_update_event
 
 User = get_user_model()
 
@@ -69,4 +72,5 @@ def place_bid(listing_id: int, bidder: User, amount: Decimal, *, now: datetime |
 
         # 5. Tell people. The notification rows belong to this transaction, the pushes wait for the commit.
         notify([outbid_user_id], Notification.Kind.OUTBID, listing, amount=amount)
+        push_to_listing(listing.pk, price_update_event(listing, leader=mask_name(bidder.username)))
         return bid

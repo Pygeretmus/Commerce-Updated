@@ -7,9 +7,11 @@ from django.utils import timezone
 from rest_framework.exceptions import APIException
 
 from notifications.models import Notification
+from notifications.realtime import push_to_listing
 from notifications.services import notify
 
 from ..models import Listing
+from .state import listing_ended_event
 
 
 class ListingStateConflict(APIException):
@@ -38,9 +40,10 @@ def _announce_end(listing: Listing) -> None:
         notify(watchers - {winner}, Notification.Kind.LISTING_ENDED, listing, sold=True)
     else:
         notify({seller} | bidders | watchers, Notification.Kind.LISTING_ENDED, listing, sold=False)
+    push_to_listing(listing.pk, listing_ended_event(listing))
 
 
-def _close(listing: Listing, now: datetime, sold: bool) -> None:
+def _close(listing: Listing, now: datetime, *, sold: bool) -> None:
     listing.status = Listing.Status.ENDED
     listing.closed_at = now
     listing.sold = sold
@@ -61,7 +64,7 @@ def close_expired(listing_id: int, now: datetime | None = None) -> bool:
             return False
         if listing.ends_at is None or listing.ends_at > now:
             return False
-        _close(listing, now, listing.top_bid_id is not None and listing.reserve_met)
+        _close(listing, now, sold=listing.top_bid_id is not None and listing.reserve_met)
         return True
 
 
@@ -94,4 +97,5 @@ def cancel(listing_id: int, now: datetime | None = None) -> Listing:
         listing.sold = False
         listing.save(update_fields=['status', 'closed_at', 'sold', 'updated_at'])
         notify(listing.watcher_ids() - {listing.seller_id}, Notification.Kind.CANCELLED, listing)
+        push_to_listing(listing.pk, listing_ended_event(listing))
         return listing

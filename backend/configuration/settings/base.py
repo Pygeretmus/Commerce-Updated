@@ -33,6 +33,7 @@ THIRD_PARTY_APPS = [
     'rest_framework_simplejwt',
     'corsheaders',
     'drf_spectacular',
+    'channels',
     'django_filters',
 ]
 
@@ -68,7 +69,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'configuration.wsgi.application'
-
+ASGI_APPLICATION = 'configuration.asgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
@@ -170,3 +171,12 @@ IMAGE_MIN_SIDE = 200
 IMAGE_MAX_SIDE = 6000
 LISTING_MAX_IMAGES = 8
 THUMBNAIL_SIZE = 400
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [env('REDIS_URL')],
+        },
+    },
+}

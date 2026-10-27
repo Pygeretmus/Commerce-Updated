@@ -52,6 +52,20 @@ class APINotificationListViewTest(APITestCase):
         # === Assert ===
         self.assertEqual([r['id'] for r in rows], [unread.pk])
 
+    def test_it_returns_everything_when_unread_is_false(self):
+        # === Arrange ===
+        from django.utils import timezone
+
+        read = note(self.me, self.listing, read_at=timezone.now())
+        unread = note(self.me, self.listing)
+        self.client.force_authenticate(self.me)
+
+        # === Act ===
+        rows = self.client.get(reverse('notifications:notification-list') + '?unread=false').json()['results']
+
+        # === Assert ===
+        self.assertCountEqual([r['id'] for r in rows], [read.pk, unread.pk])
+
     def test_it_requires_authentication(self):
         # === Act ===
         response = self.client.get(reverse('notifications:notification-list'))

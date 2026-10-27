@@ -45,3 +45,7 @@ def listing_ended_event(listing: Listing) -> dict:
         'closed_at': iso(listing.closed_at),
         'server_time': iso(timezone.now()),
     }
+
+
+def price_update_event(listing: Listing, leader: str | None = None) -> dict:
+    return {'type': 'price_update', 'listing_id': listing.pk, **state_of(listing, leader)}

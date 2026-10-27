@@ -1,16 +1,27 @@
 """
 ASGI config for commerce project.
 
-It exposes the ASGI callable as a module-level variable named ``application``.
-
-For more information on this file, see
-https://docs.djangoproject.com/en/6.0/howto/deployment/asgi/
+HTTP goes to Django, WebSocket connections go to the Channels consumers (live prices and notifications).
+Run it with an ASGI server, for example: uvicorn configuration.asgi:application
 """
 
 import os
 
+from channels.routing import ProtocolTypeRouter, URLRouter
+from channels.security.websocket import AllowedHostsOriginValidator
 from django.core.asgi import get_asgi_application
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'configuration.settings.base')
 
-application = get_asgi_application()
+# Django must be set up before the consumers (and their models) are imported
+django_asgi_app = get_asgi_application()
+
+from notifications.routing import websocket_urlpatterns
+
+application = ProtocolTypeRouter(
+    {
+        'http': django_asgi_app,
+        # Browsers must come from an allowed host: a page on another site cannot open the socket
+        'websocket': AllowedHostsOriginValidator(URLRouter(websocket_urlpatterns)),
+    }
+)

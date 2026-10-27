@@ -27,9 +27,4 @@ python manage.py collectstatic --noinput
 
 echo "Starting web server..."
 
-exec gunicorn \
-    --bind 0.0.0.0:8000 \
-    --workers 3 \
-    --threads 8 \
-    --timeout 30 \
-    configuration.wsgi:application
+exec uvicorn configuration.asgi:application --host 0.0.0.0 --port 8000 --workers 3

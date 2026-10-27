@@ -44,18 +44,21 @@ A superuser is created on startup from `DJANGO_SUPERUSER_EMAIL` / `DJANGO_SUPERU
 flowchart LR
     user([Browser]) --> nginx
     nginx -- "/" --> frontend["frontend<br/>static files"]
-    nginx -- "/api, /static" --> backend["backend<br/>gunicorn"]
+    nginx -- "/api, /ws" --> backend["backend<br/>uvicorn (HTTP + WebSocket)"]
+    nginx -- "/static, /media" --> files[("static and<br/>media volumes")]
 
     backend --> postgres[(postgres)]
     backend --> redis[(redis)]
+    backend --> files
     worker["worker<br/>celery worker"] --> postgres
     worker --> redis
+    worker --> files
     beat["beat<br/>celery beat"] --> redis
 
     migrate["migrate<br/>one-off job"] -.->|"schema first"| postgres
 ```
 
-`backend`, `worker` and `beat` start only after `migrate` has finished. `redis` is the Celery broker and also serves the cache and rate limits.
+`backend`, `worker` and `beat` start only after `migrate` has finished. `redis` is the Celery broker, the Channels layer (live updates between processes), the cache and the rate-limit store.
 
 ### Configuration
 
@@ -66,7 +69,7 @@ flowchart LR
 | `ALLOWED_HOSTS`                                          | Comma-separated hosts                                      |
 | `CSRF_TRUSTED_ORIGINS`, `CORS_ALLOWED_ORIGINS`           | Origins allowed to call the API (add your dev origin here) |
 | `DATABASE_URL`                                           | e.g. `postgresql://user:pass@db:5432/postgres`             |
-| `REDIS_URL`                                              | Celery broker and cache                                    |
+| `REDIS_URL`                                              | Celery broker, cache, throttling and the Channels layer    |
 | `DJANGO_SUPERUSER_USERNAME`, `..._EMAIL`, `..._PASSWORD` | Initial admin account                                      |
 | `POSTGRES_PASSWORD`                                      | Read by Compose for the database container                 |
 | `VITE_API_URL`                                           | API base URL baked into the client at build time           |
@@ -93,7 +96,7 @@ Base path `/api`. All endpoints except registration and login need `Authorizatio
 | `POST`                 | `/listings/{id}/end_now/`       | End active listing now                                       |
 | `GET` `POST`           | `/listings/{id}/bids/`          | Bid history (masked); place a bid                            |
 | `GET` `POST`           | `/listings/{id}/comments/`      | Ask question, read answer                                    |
-| `DELETE`               | `/listings/{id}/comments/{id}/` | Delete comment                                               |
+| `DELETE`               | `/comments/{id}/`               | Delete my comment                                            |
 | `PUT` `DELETE`         | `/listings/{id}/watch/`         | Add/remove listing to/from watchlist                         |
 | `GET`                  | `/me/bids/`                     | Bids personal dashboard                                      |
 | `GET`                  | `/me/listings/`                 | Listings personal dashboard                                  |
@@ -101,6 +104,7 @@ Base path `/api`. All endpoints except registration and login need `Authorizatio
 | `GET`                  | `/notifications/`               | List of all notifications                                    |
 | `GET`                  | `/notifications/unread_count/`  | Unread notifications counter                                 |
 | `POST`                 | `/notifications/read/`          | Mark chosen notifications as read                            |
+| `WS`                   | `/ws/listings/{id}/`            | Live price and end events of a lot                           |
 
 ## Development
 
@@ -111,7 +115,8 @@ cd backend
 uv sync
 # needs PostgreSQL and Redis; point DATABASE_URL and REDIS_URL at them in backend/.env
 uv run manage.py migrate
-uv run manage.py runserver
+uv run daphne configuration.asgi:application   # HTTP and WebSocket on :8000 (runserver is WSGI only: no live updates)
+uv run celery -A configuration worker -B -l INFO -Q images,commerce,notifications   # worker and scheduler in one
 ```
 
 ### Tests
