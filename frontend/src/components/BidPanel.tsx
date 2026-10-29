@@ -1,17 +1,19 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { ApiError } from "../api/client";
-import { biddingApi } from "../api/endpoints";
+import { biddingApi, sellerApi } from "../api/endpoints";
 import type { ListingDetail, PlacedBid } from "../api/types";
 import { useAuth } from "../auth/context";
 import { formatDate, formatMoney, plural } from "../format";
 import { Countdown } from "./Countdown";
+import { ConfirmButton } from "./ConfirmButton";
 import { FormErrors } from "./Field";
 
 interface Props {
   lot: ListingDetail;
   skew: number;
   onPlaced: (placed: PlacedBid) => void;
+  onChanged: () => void;
 }
 
 function ReserveLine({ lot }: { lot: ListingDetail }) {
@@ -67,14 +69,44 @@ function Result({ lot }: { lot: ListingDetail }) {
   );
 }
 
-function OwnerControls({ lot }: { lot: ListingDetail }) {
-  const [error] = useState<ApiError | null>(null);
+function OwnerControls({
+  lot,
+  onChanged,
+}: {
+  lot: ListingDetail;
+  onChanged: () => void;
+}) {
+  const [error, setError] = useState<ApiError | null>(null);
   if (lot.status !== "active") return null;
-
+  const run = async (action: () => Promise<unknown>) => {
+    setError(null);
+    try {
+      await action();
+      onChanged();
+    } catch (e) {
+      setError(e instanceof ApiError ? e : null);
+    }
+  };
   return (
     <div className="owner-controls">
       <p className="label">You are the seller</p>
       <FormErrors messages={error?.errors.map((e) => e.message) ?? []} />
+      {lot.bids_count > 0 ? (
+        <ConfirmButton
+          confirmLabel={`Yes, sell for ${formatMoney(lot.current_price)}`}
+          onConfirm={() => run(() => sellerApi.endNow(lot.id))}
+          className="btn"
+        >
+          End now: accept the top bid
+        </ConfirmButton>
+      ) : (
+        <ConfirmButton
+          confirmLabel="Yes, withdraw this lot"
+          onConfirm={() => run(() => sellerApi.cancel(lot.id))}
+        >
+          Withdraw the lot
+        </ConfirmButton>
+      )}
       <p className="muted small">
         {lot.bids_count > 0
           ? "A lot with bids cannot be withdrawn."
@@ -84,7 +116,7 @@ function OwnerControls({ lot }: { lot: ListingDetail }) {
   );
 }
 
-export function BidPanel({ lot, skew, onPlaced }: Props) {
+export function BidPanel({ lot, skew, onPlaced, onChanged }: Props) {
   const { user } = useAuth();
   const [typed, setTyped] = useState<string | undefined>(undefined);
   const [error, setError] = useState<ApiError | null>(null);
@@ -116,6 +148,7 @@ export function BidPanel({ lot, skew, onPlaced }: Props) {
         )
       ) {
         setTyped(undefined);
+        onChanged();
       }
     } finally {
       setBusy(false);
@@ -192,7 +225,9 @@ export function BidPanel({ lot, skew, onPlaced }: Props) {
         </>
       )}
 
-      {open && lot.is_seller && <OwnerControls lot={lot} />}
+      {open && lot.is_seller && (
+        <OwnerControls lot={lot} onChanged={onChanged} />
+      )}
 
       {open && !lot.is_seller && user && lot.my_bid_status !== "winning" && (
         <form className="bid-form" onSubmit={submit} noValidate>

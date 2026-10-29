@@ -5,7 +5,9 @@ import { wsUrl } from "../api/client";
 import { catalogApi, discussionApi } from "../api/endpoints";
 import type { ListingEvent, PlacedBid } from "../api/types";
 import { useAuth } from "../auth/context";
+import { BidHistory } from "../components/BidHistory";
 import { BidPanel } from "../components/BidPanel";
+import { Comments } from "../components/Comments";
 import { Gallery } from "../components/Gallery";
 import { ErrorNote, Loading } from "../components/StateNote";
 import { lotNumber } from "../format";
@@ -131,6 +133,12 @@ export default function Lot() {
             <h2 id="desc-title">About this lot</h2>
             <p className="prose">{data.description}</p>
           </section>
+          {data.status !== "draft" && (
+            <>
+              <BidHistory listingId={data.id} bidsCount={data.bids_count} />
+              <Comments listingId={data.id} isSeller={data.is_seller} />
+            </>
+          )}
         </div>
 
         <div className="lot-side">
@@ -158,7 +166,12 @@ export default function Lot() {
             </div>
           ) : (
             <>
-              <BidPanel lot={data} skew={skew} onPlaced={onPlaced} />
+              <BidPanel
+                lot={data}
+                skew={skew}
+                onPlaced={onPlaced}
+                onChanged={lot.reload}
+              />
               {user && !data.is_seller && (
                 <div className="watch">
                   <button
